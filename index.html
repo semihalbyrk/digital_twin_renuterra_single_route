@@ -1,1982 +1,321 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karaganda Waste Collection - Digital Twin Dashboard</title>
+    <title>Renuterra - Single Route Analysis</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9;
+        :root {
+            --color-primary: #0b2b51;
+            --color-secondary: #3ba935;
+            --text-light: #f9fafb;
+            --text-medium: #667085;
+            --text-dark: #344054;
+            --bg-main: #0b2b51;
+            --bg-card: #ffffff;
+            --bg-kpi: #f9fafb;
+            --bg-better: #e1f5e0;
+            --bg-worse: #fbe6e6;
         }
-        .loader {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .toggle-btn-active {
-            background-color: #4f46e5;
-            color: white;
-        }
-        .toggle-btn-inactive {
-            color: #4b5563;
-        }
-        .matrix-table td, .matrix-table th {
-            padding: 0.5rem;
-            text-align: center;
-            border: 1px solid #e5e7eb;
-            font-size: 0.75rem;
-        }
-        .matrix-table th {
-            background-color: #f9fafb;
-            font-weight: 600;
-        }
-        .delta-positive { color: #16a34a; }
-        .delta-negative { color: #dc2626; }
-        .delta-neutral { color: #64748b; }
-        .accordion-arrow {
-            transition: transform 0.3s ease;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-light); }
+        .tab-active { border-color: var(--color-secondary); color: var(--color-secondary); background-color: var(--bg-card); border-bottom-color: var(--bg-card); }
+        .tab-inactive { border-color: transparent; color: var(--text-medium); }
+        .card { background-color: var(--bg-card); color: var(--text-dark); border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); padding: 1.5rem; }
+        .card-header { font-size: 1.125rem; font-weight: 600; color: var(--text-dark); border-bottom: 1px solid #e5e7eb; padding-bottom: 0.75rem; margin-bottom: 1rem; }
+        .label { display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-dark); margin-bottom: 0.25rem; }
+        .input { width: 100%; border-radius: 0.375rem; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--text-dark); }
+        .input:disabled { background-color: #f3f4f6; cursor: not-allowed; }
+        .input-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; text-align: center; transition: background-color 0.2s; cursor: pointer; }
+        .btn-primary { background-color: var(--color-secondary); color: white; }
+        .btn-primary:hover { background-color: #32932f; }
+        .btn-secondary { background-color: #e5e7eb; color: var(--text-dark); }
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid var(--color-secondary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h1, h2, h3 { color: var(--text-light); }
+        .card h1, .card h2, .card h3, .card p, .card span, .card div, .card table { color: var(--text-dark); }
+        .card .text-gray-500 { color: var(--text-medium) !important; }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="mb-8 p-6 bg-white rounded-xl shadow-md">
-            <h1 class="text-3xl font-bold text-gray-800">Karaganda Digital Twin Simulation Dashboard</h1>
-            <p class="text-gray-600 mt-2">Adjust the simulation parameters to analyze operational efficiency and capacity increase.</p>
-        </div>
-
-        <!-- Mode Toggle -->
-        <div class="mb-8 flex justify-center">
-            <div class="flex border border-gray-200 rounded-lg p-1 bg-gray-100">
-                <button id="singleModeBtn" class="toggle-btn-active px-6 py-2 text-sm font-medium rounded-md transition-colors duration-200">Single Simulation</button>
-                <button id="compareModeBtn" class="toggle-btn-inactive px-6 py-2 text-sm font-medium rounded-md transition-colors duration-200">Compare Scenarios</button>
+    <div class="max-w-screen-xl mx-auto space-y-8">
+        <header class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold">Single Route Analysis</h1>
             </div>
-        </div>
-        
-        <!-- Data Source Note -->
-        <div class="mb-8 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg shadow-sm">
-             <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-blue-700">
-                        <strong>Data Source & Simulation Period:</strong> The simulation uses average daily waste generation rates calculated from historical data (approx. June - mid-August). The "Total Waste Collected" figure is a projection for a hypothetical period (e.g., 60 days) based on these rates, not a direct sum from the historical data.
-                    </p>
-                </div>
-            </div>
-        </div>
+            <p class="text-sm hidden md:block">Analyze the performance and efficiency of a single route based on its plan.</p>
+        </header>
 
-        <!-- Control Panel Section -->
-        <div id="controlPanel" class="bg-white p-6 rounded-xl shadow-md h-fit mb-8 max-w-5xl mx-auto">
-            <!-- Toggle Buttons -->
-            <div class="flex border border-gray-200 rounded-lg p-1 mb-6 bg-gray-100 max-w-md mx-auto">
-                <button id="paramsToggle" class="w-1/3 toggle-btn-active rounded-md py-2 text-sm font-medium transition-colors duration-200">Parameters</button>
-                <button id="stationsToggle" class="w-1/3 toggle-btn-inactive rounded-md py-2 text-sm font-medium transition-colors duration-200">Stations</button>
-                <button id="distancesToggle" class="w-1/3 toggle-btn-inactive rounded-md py-2 text-sm font-medium transition-colors duration-200">Distances</button>
-            </div>
-
-            <!-- Parameters View -->
-            <div id="parametersView">
-                <h2 class="text-xl text-center font-bold text-gray-800 mb-6 border-b pb-3">Simulation Parameters</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Simulation Logic Selector -->
-                    <div class="md:col-span-1 lg:col-span-3">
-                         <label for="simulationLogic" class="block text-sm font-medium text-gray-700">Simulation Logic</label>
-                         <select id="simulationLogic" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input bg-indigo-50">
-                            <option value="direct" selected>Direct Shipment (As-Is)</option>
-                            <option value="demand_aggregation">Regional Demand Aggregation (Full)</option>
-                            <option value="demand_aggregation_partial">Regional Demand Aggregation (Partial)</option>
-                         </select>
-                    </div>
-
+        <!-- Route Selection View -->
+        <div id="routeSelectionView">
+            <div class="card">
+                <h2 class="card-header">Select a Route to Analyze</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                     <div>
-                        <label for="simulationDays" class="block text-sm font-medium text-gray-700">Simulation Duration (days)</label>
-                        <input type="number" id="simulationDays" value="60" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
+                        <label for="filterDate" class="label">Date</label>
+                        <input type="date" id="filterDate" class="input" value="2025-10-15">
                     </div>
                     <div>
-                        <label for="numTrucks" class="block text-sm font-medium text-gray-700">Number of Trucks</label>
-                        <input type="number" id="numTrucks" value="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
+                        <label for="filterOperation" class="label">Operation</label>
+                        <select id="filterOperation" class="input">
+                            <option selected>Dubai Medical</option>
+                        </select>
                     </div>
-                    <div>
-                        <label for="avgSpeed" class="block text-sm font-medium text-gray-700">Average Speed (km/h)</label>
-                        <input type="number" id="avgSpeed" value="35" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                    <div>
-                        <label for="loadingTime" class="block text-sm font-medium text-gray-700">Loading Time (minutes)</label>
-                        <input type="number" id="loadingTime" value="45" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                    <div>
-                        <label for="unloadingTime" class="block text-sm font-medium text-gray-700">Unloading Time (minutes)</label>
-                        <input type="number" id="unloadingTime" value="35" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                     <div>
-                        <label for="timeStep" class="block text-sm font-medium text-gray-700">Time Step (minutes)</label>
-                        <input type="number" id="timeStep" value="10" min="1" max="60" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                    <div>
-                        <label for="workStart" class="block text-sm font-medium text-gray-700">Workday Start</label>
-                        <input type="number" id="workStart" value="8" min="0" max="23" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                    <div>
-                        <label for="workEnd" class="block text-sm font-medium text-gray-700">Workday End</label>
-                        <input type="number" id="workEnd" value="17" min="0" max="23" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-                     <div>
-                        <label for="targetUtilization" class="block text-sm font-medium text-gray-700">Target Utilization (%)</label>
-                        <input type="number" id="targetUtilization" value="85" min="1" max="100" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                    </div>
-
-                    <!-- Direct Shipment Params -->
-                    <div id="directShipmentParams" class="contents">
-                        <div>
-                            <label for="triggerPercent" class="block text-sm font-medium text-gray-700">Fill Level Trigger (%)</label>
-                            <input type="number" id="triggerPercent" value="85" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                        </div>
-                        <div class="md:col-span-1">
-                             <label for="queueApproach" class="block text-sm font-medium text-gray-700">Queue Approach</label>
-                             <select id="queueApproach" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                                <option value="fifo" selected>First-In, First-Out (FIFO)</option>
-                                <option value="srt">Smallest Remaining Time (SRT)</option>
-                             </select>
-                        </div>
-                    </div>
-
-                    <!-- Optimized Routing Params -->
-                    <div id="optimizedRoutingParams" class="hidden contents">
-                        <div>
-                            <label for="truckCapacity" class="block text-sm font-medium text-gray-700">Truck Capacity (kg)</label>
-                            <input type="number" id="truckCapacity" value="1500" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                        </div>
-                        <div>
-                            <label for="minCollectionThreshold" class="block text-sm font-medium text-gray-700">Min. Collection Threshold (%)</label>
-                            <input type="number" id="minCollectionThreshold" value="30" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                        </div>
-                        <div>
-                            <label for="minDispatchThreshold" class="block text-sm font-medium text-gray-700">Min Dispatch Threshold (stations)</label>
-                            <input type="number" id="minDispatchThreshold" value="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                        </div>
-                        <div>
-                            <label for="emergencyThreshold" class="block text-sm font-medium text-gray-700">Emergency Dispatch Threshold (%)</label>
-                            <input type="number" id="emergencyThreshold" value="95" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 control-input">
-                        </div>
+                    <div class="self-end">
+                        <button id="searchRoutesBtn" class="btn btn-primary w-full">Search Routes</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Stations View -->
-            <div id="stationsView" class="hidden">
-                <h2 class="text-xl text-center font-bold text-gray-800 mb-4 border-b pb-3">Ecostation Data</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
+                <div class="mt-6 overflow-x-auto">
+                    <table class="w-full text-sm text-left">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Rate (kg)</th>
-                                <th id="ratePerStepHeader" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate per 10 min (kg)</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Output (tons)</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity (kg)</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time to Fill (days)</th>
+                                <th class="p-3 font-semibold">Route</th>
+                                <th class="p-3 font-semibold">Shift</th>
+                                <th class="p-3 font-semibold">Planned Time</th>
+                                <th class="p-3 font-semibold">Vehicle</th>
+                                <th class="p-3 font-semibold">Action</th>
                             </tr>
                         </thead>
-                        <tbody id="stationsTableBody" class="bg-white divide-y divide-gray-200">
-                            <!-- Rows will be inserted here by JS -->
-                        </tbody>
+                        <tbody id="routeListBody"></tbody>
                     </table>
                 </div>
             </div>
+        </div>
+        
+        <!-- Simulation View -->
+        <main id="simulationView" class="hidden space-y-8">
+            <div class="bg-white p-4 rounded-lg flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800" id="selectedRouteName"></h2>
+                    <p class="text-sm text-gray-500" id="selectedRouteInfo"></p>
+                </div>
+                <button id="changeRouteBtn" class="btn btn-secondary">Change Route</button>
+            </div>
 
-            <!-- Distances View -->
-            <div id="distancesView" class="hidden">
-                 <h2 class="text-xl text-center font-bold text-gray-800 mb-4 border-b pb-3">Locations & Distances</h2>
-                 <!-- Add New Ecostation Form -->
-                 <div class="mb-8 p-4 border rounded-lg bg-gray-50">
-                     <h3 class="text-lg font-semibold text-gray-700 mb-3">Add New Ecostation</h3>
-                     <div class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                             <div>
-                                <label for="newName" class="block text-sm font-medium text-gray-700">Name</label>
-                                <input type="text" id="newName" placeholder="e.g., New Point 1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm">
-                             </div>
-                             <div>
-                                <label for="newLat" class="block text-sm font-medium text-gray-700">Latitude</label>
-                                <input type="number" id="newLat" placeholder="e.g., 49.8" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm">
-                             </div>
-                             <div>
-                                <label for="newLon" class="block text-sm font-medium text-gray-700">Longitude</label>
-                                <input type="number" id="newLon" placeholder="e.g., 73.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm">
-                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label for="newDailyRate" class="block text-sm font-medium text-gray-700">Daily Rate (kg)</label>
-                                <input type="number" id="newDailyRate" placeholder="e.g., 150.5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm">
+            <!-- Controls Section -->
+            <div class="card !p-0">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex gap-x-6 px-6">
+                        <button id="paramsTabBtn" class="tab-active py-4 px-1 text-sm font-medium border-b-2">Parameters</button>
+                        <button id="stopsTabBtn" class="tab-inactive py-4 px-1 text-sm font-medium border-b-2">All Route Stops</button>
+                    </nav>
+                </div>
+                <div id="paramsView" class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Time & Traffic Section -->
+                        <div class="space-y-4 p-4 border rounded-lg">
+                             <h3 class="font-semibold text-gray-800">Time & Traffic</h3>
+                            <div class="input-group">
+                                <div><label class="label">Planned Start Time</label><input id="plannedStartTime" type="time" class="input" readonly disabled></div>
+                                <div><label class="label">Planned End Time</label><input id="plannedEndTime" type="time" class="input" readonly disabled></div>
+                            </div>
+                            <div class="input-group">
+                                <div><label class="label">Avg. Speed (km/h)</label><input id="avgSpeed" type="number" class="input" value="40"></div>
+                                <div><label class="label">Road Factor</label><input id="roadFactor" type="number" class="input" value="1.3" step="0.1"></div>
                             </div>
                             <div>
-                                <label for="newCapacity" class="block text-sm font-medium text-gray-700">Capacity (kg)</label>
-                                <input type="number" id="newCapacity" value="1500" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm">
+                                <label class="label">Default Service Time (min)</label>
+                                <input id="defaultServiceTime" type="number" class="input" value="15">
                             </div>
-                             <button id="addStationBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-300 h-10 self-end">Add Ecostation</button>
                         </div>
-                     </div>
-                 </div>
-
-                 <!-- Locations Table -->
-                 <div class="mb-8">
-                     <h3 class="text-lg font-semibold text-gray-700 mb-3">Locations List</h3>
-                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <!-- Costs Section -->
+                        <div class="space-y-4 p-4 border rounded-lg">
+                            <h3 class="font-semibold text-gray-800">Costs & Constraints</h3>
+                             <div><label class="label">Vehicle Capacity (kg)</label><input id="vehicleCapacity" type="number" class="input" value="2000"></div>
+                            <div class="input-group">
+                                <div><label class="label">Cost per km (AED)</label><input id="costPerKm" type="number" class="input" value="3.5"></div>
+                                <div><label class="label">Cost per Hour (AED)</label><input id="costPerHour" type="number" class="input" value="80"></div>
+                            </div>
+                        </div>
+                         <!-- Break Section -->
+                        <div class="space-y-4 p-4 border rounded-lg">
+                            <h3 class="font-semibold text-gray-800">Break Window</h3>
+                            <div class="input-group">
+                                <div><label class="label">Break Start</label><input id="breakStart" type="time" class="input" value="12:00"></div>
+                                <div><label class="label">Break End</label><input id="breakEnd" type="time" class="input" value="13:00"></div>
+                            </div>
+                        </div>
+                    </div>
+                     <button id="runSimBtn" class="w-full btn btn-primary text-lg mt-8">Run Simulation</button>
+                </div>
+                <div id="stopsView" class="hidden p-6">
+                    <div class="max-h-[600px] overflow-y-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latitude</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Longitude</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Rate</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th class="p-2 font-semibold">#</th>
+                                    <th class="p-2 font-semibold">SERVICE POINT</th>
+                                    <th class="p-2 font-semibold">Waste (kg)</th>
+                                    <th class="p-2 font-semibold">SERVICE TIME (min)</th>
                                 </tr>
                             </thead>
-                            <tbody id="locationsTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                            <tbody id="stopsTableBody"></tbody>
                         </table>
-                     </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section (Placeholder) -->
+            <div id="loaderContainer" class="hidden h-full items-center justify-center py-20">
+                <div class="text-center">
+                    <div class="loader mx-auto"></div>
+                    <p class="mt-4 text-gray-300 font-semibold">Running simulation, please wait...</p>
+                </div>
+            </div>
+            <div id="resultsContainer" class="hidden space-y-8">
+                 <!-- The final output design will be placed here -->
+                 <div class="card text-center">
+                    <p class="text-lg">Simulation results will be displayed here.</p>
                  </div>
-
-                 <!-- Distance Matrix -->
-                 <div>
-                     <h3 class="text-lg font-semibold text-gray-700 mb-3">Distance Matrix (km)</h3>
-                     <div id="distanceMatrixContainer" class="overflow-x-auto"></div>
-                 </div>
             </div>
-
-             <!-- Action Buttons -->
-            <div class="mt-8 flex flex-col gap-4">
-                <button id="runSimulationBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-300 flex items-center justify-center">
-                    <svg id="runIcon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span id="runBtnText">Run Simulation</span>
-                </button>
-                 <!-- Scenario Management -->
-                <div class="p-4 border rounded-lg bg-gray-50">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Scenario Management</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Scenario A -->
-                        <div id="scenarioA-card" class="p-4 border rounded-lg">
-                             <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-gray-800">Scenario A</h4>
-                                <span id="statusA" class="text-xs font-medium px-2 py-1 rounded-full"></span>
-                             </div>
-                             <p id="summaryA" class="text-xs text-gray-600 mb-4 h-12"></p>
-                             <div id="actionsA" class="space-y-2">
-                                 <button id="editA" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-300 text-sm">Edit</button>
-                                 <button id="saveA" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 text-sm hidden">Save Changes</button>
-                             </div>
-                        </div>
-                        <!-- Scenario B -->
-                        <div id="scenarioB-card" class="p-4 border rounded-lg">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-gray-800">Scenario B</h4>
-                                <span id="statusB" class="text-xs font-medium px-2 py-1 rounded-full"></span>
-                            </div>
-                            <p id="summaryB" class="text-xs text-gray-600 mb-4 h-12"></p>
-                            <div id="actionsB" class="space-y-2">
-                                <button id="editB" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-300 text-sm">Edit</button>
-                                <button id="saveB" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300 text-sm hidden">Save Changes</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Comparison Results View -->
-        <div id="comparisonResultsView" class="hidden">
-            <!-- Key Metrics -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Total Waste Collected</h3>
-                    <div id="totalWasteCompare" class="text-3xl font-bold mt-2">--</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Avg. Truck Utilization</h3>
-                    <div id="avgUtilizationCompare" class="text-3xl font-bold mt-2">--</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Waste per Busy Hour</h3>
-                    <div id="wastePerHourCompare" class="text-3xl font-bold mt-2">--</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Total Service Failures</h3>
-                    <div id="totalFailuresCompare" class="text-3xl font-bold mt-2">--</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Potential Additional Tonnage</h3>
-                    <div id="potentialTonnageCompare" class="text-3xl font-bold mt-2">--</div>
-                </div>
-            </div>
-
-            <!-- Comparison Truck Performance Tables -->
-            <div id="comparisonTrucksTableView" class="mb-8"></div>
-
-             <!-- Charts -->
-            <div class="space-y-8">
-                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Truck Utilization Rate (%)</h3>
-                     <div class="relative h-96">
-                        <canvas id="utilizationChartCompare"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Normalized Wait Time (min/km)</h3>
-                    <div class="relative h-96">
-                        <canvas id="waitTimeChartCompare"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Hourly Truck Activity</h3>
-                    <div class="relative h-96">
-                        <canvas id="hourlyActivityChartCompare"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Service Failures by Station (Overflow Count)</h3>
-                    <div class="relative h-96">
-                        <canvas id="failuresChartCompare"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Single Sim Results Section -->
-        <div id="singleResultsView">
-            <!-- Key Metrics -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Total Waste Collected</h3>
-                    <div id="totalWaste" class="text-4xl font-bold text-indigo-600 mt-2">-- tons</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Avg. Truck Utilization</h3>
-                    <div id="avgUtilization" class="text-4xl font-bold text-indigo-600 mt-2">-- %</div>
-                </div>
-                 <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Waste per Busy Hour</h3>
-                    <div id="wastePerHour" class="text-4xl font-bold text-indigo-600 mt-2">-- kg/hr</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Total Service Failures</h3>
-                    <div id="totalFailures" class="text-4xl font-bold text-red-500 mt-2">--</div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                    <h3 class="text-lg font-semibold text-gray-500">Potential Additional Tonnage</h3>
-                    <div id="potentialTonnage" class="text-4xl font-bold text-green-600 mt-2">-- tons</div>
-                </div>
-            </div>
-
-            <!-- Truck Performance Table -->
-            <div id="trucksTableView" class="hidden bg-white p-6 rounded-xl shadow-md mb-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Truck Performance Summary</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Truck ID</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trips Made</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Distance (km)</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Waste Collected (tons)</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilization (%)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="trucksTableBody" class="bg-white divide-y divide-gray-200">
-                            <!-- Rows will be inserted here by JS -->
-                        </tbody>
-                    </table>
-                </div>
-                 <div id="historicalNote" class="hidden mt-4 p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-700 text-sm rounded-r-lg">
-                    <!-- Content will be added by JS -->
-                </div>
-            </div>
-
-            <!-- Simulation Results Table -->
-            <div id="resultsTableView" class="hidden bg-white p-6 rounded-xl shadow-md mb-8">
-                 <h2 class="text-xl font-bold text-gray-800 mb-4">Collection Summary by Station</h2>
-                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Station</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits to Station</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Collected (tons)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsTableBody" class="bg-white divide-y divide-gray-200">
-                            <!-- Rows will be inserted here by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Charts -->
-            <div id="chartsContainer" class="space-y-8">
-                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Truck Utilization Rate (%)</h3>
-                    <div class="relative h-96">
-                        <canvas id="utilizationChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Normalized Wait Time (min/km)</h3>
-                    <div class="relative h-96">
-                        <canvas id="waitTimeChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Hourly Truck Activity</h3>
-                    <div class="relative h-96">
-                        <canvas id="hourlyActivityChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Service Failures by Station (Overflow Count)</h3>
-                    <div class="relative h-96">
-                        <canvas id="failuresChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Loader -->
-        <div id="loaderContainer" class="hidden items-center justify-center h-96 bg-white p-6 rounded-xl shadow-md">
-            <div class="text-center">
-                <div class="loader mx-auto"></div>
-                <p class="mt-4 text-gray-600 font-semibold">Simulation is running, please wait...</p>
-            </div>
-        </div>
-        
-        <!-- Explanation Section -->
-        <div id="explanation-accordion" class="mt-8 bg-white p-6 rounded-xl shadow-md">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">How the Outputs are Calculated</h2>
-            <div class="space-y-2">
-
-                <!-- Accordion Item 1 -->
-                <div class="border-b border-gray-200">
-                    <button class="accordion-header w-full text-left py-4 focus:outline-none">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-semibold text-gray-700">Core Simulation Logic</h3>
-                            <svg class="accordion-arrow w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </button>
-                    <div class="accordion-content hidden prose max-w-none text-gray-600 pb-4">
-                        <p>The simulation engine is built on a loop that advances time in discrete steps, defined by the <strong>"Time Step (minutes)"</strong> parameter. For a 60-day simulation with a 10-minute time step, this loop runs 8,640 times (60 days * 24 hours * 6 steps/hour). In each step, the following occurs:</p>
-                        <ol class="list-decimal pl-5 space-y-2">
-                            <li><strong>Waste Accumulation:</strong> If the current day is not Sunday and the time is within effective work hours (e.g., 08:00-17:00), each station's <strong>current_waste_kg</strong> is increased by its calculated `rate_per_step`.</li>
-                            <li><strong>Demand Trigger & Capacity Control:</strong> On workdays, if a station's waste exceeds the defined trigger percentage, a "collection request" is created with the current minute as a timestamp. If a station's waste exceeds 100% capacity while it's already waiting, a "Service Failure" is logged.</li>
-                            <li><strong>Truck Assignment Logic:</strong> The logic depends on the selected <strong>Simulation Logic</strong> mode in the parameters.</li>
-                        </ol>
-                    </div>
-                </div>
-
-                <!-- Accordion Item 2: Direct Shipment -->
-                <div class="border-b border-gray-200">
-                    <button class="accordion-header w-full text-left py-4 focus:outline-none">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-semibold text-gray-700">Direct Shipment (As-Is) Algorithm</h3>
-                            <svg class="accordion-arrow w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </button>
-                    <div class="accordion-content hidden prose max-w-none text-gray-600 pb-4">
-                        <p>This is the baseline model that simulates the current operational strategy. A truck is dispatched to service only one station per trip and immediately returns to the garage. The dispatch logic is triggered whenever a truck is available during work hours and there are stations in the collection queue.</p>
-                        <ol class="list-decimal pl-5 space-y-2">
-                            <li><strong>Step 1: Demand Trigger:</strong> A station is added to the `collection_queue` as soon as its current waste level exceeds the <strong>"Fill Level Trigger (%)"</strong> parameter.</li>
-                            <li><strong>Step 2: Queue Prioritization:</strong> When a truck is available, the system selects a station from the queue based on the chosen <strong>"Queue Approach"</strong>:
-                                <ul class="list-disc pl-5 mt-1">
-                                    <li><strong>FIFO (First-In, First-Out):</strong> The algorithm selects the station that has been waiting the longest. This is based on the timestamp of when the collection request was created.</li>
-                                    <li><strong>SRT (Smallest Remaining Time):</strong> The algorithm calculates a `time_to_fill` for every station in the queue to determine urgency.
-                                    <br>
-                                    `time_to_fill (min) = (max_capacity_kg - current_waste_kg) / rate_per_minute`
-                                    <br>
-                                    The station with the lowest `time_to_fill` is prioritized to minimize the risk of service failures (overflows).
-                                    </li>
-                                </ul>
-                            </li>
-                            <li><strong>Step 3: Dispatch & Time Check:</strong> After a station is selected, the system calculates the total time for a round trip (`Garage -> Station -> Garage`). The truck is dispatched only if this trip can be completed before the end of the workday, preventing overtime.</li>
-                        </ol>
-                    </div>
-                </div>
-
-                <!-- Accordion Item 3: Regional Demand Aggregation -->
-                 <div class="border-b border-gray-200">
-                    <button class="accordion-header w-full text-left py-4 focus:outline-none">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-semibold text-gray-700">Regional Demand Aggregation & Routing</h3>
-                            <svg class="accordion-arrow w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </button>
-                    <div class="accordion-content hidden prose max-w-none text-gray-600 pb-4">
-                        <p>This algorithm is proactive. It waits for multiple collection demands to accumulate in a region before dispatching a truck, aiming to build dense and efficient multi-stop routes.</p>
-                        <ol class="list-decimal pl-5 space-y-2">
-                            <li><strong>Step 1: Demand Aggregation:</strong> Stations that cross the `Min. Collection Threshold` are added to a "candidate pool". The algorithm remains idle, allowing demand to build up.</li>
-                            <li><strong>Step 2: Dispatch Trigger:</strong> A route is only planned when the number of stations in the candidate pool meets or exceeds the `Minimum Dispatch Threshold` (e.g., 3 stations).</li>
-                            <li><strong>Step 3: Route Construction (Nearest Neighbor Heuristic):</strong> Once triggered, the algorithm builds a route:
-                                <ul class="list-disc pl-5 mt-1">
-                                    <li>It starts with the most urgent station (lowest `time_to_fill`) in the pool.</li>
-                                    <li>From there, it iteratively adds the **nearest unvisited station** from the candidate pool to the route, as long as it fits the truck's remaining capacity.</li>
-                                    <li>This process continues until the truck is full or no more candidates can be added.</li>
-                                </ul>
-                            </li>
-                            <li><strong>Step 4: Dispatch:</strong> The constructed multi-stop route is assigned to an available truck. This creates fewer but more productive trips compared to a reactive model.</li>
-                        </ol>
-                    </div>
-                </div>
-                
-                <!-- Accordion Item 4 -->
-                <div class="border-b border-gray-200">
-                    <button class="accordion-header w-full text-left py-4 focus:outline-none">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-semibold text-gray-700">Chart & Metric Calculations</h3>
-                            <svg class="accordion-arrow w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </button>
-                    <div class="accordion-content hidden prose max-w-none text-gray-600 pb-4">
-                         <ul class="list-disc pl-5 space-y-2">
-                            <li>
-                                <strong>Truck Utilization Rate:</strong> This chart shows the percentage of available work minutes that each truck spent on a trip. It's calculated as (`Total Work Minutes` / `Total Available Work Minutes`) * 100.
-                            </li>
-                             <li>
-                                <strong>Normalized Wait Time:</strong> This metric measures service responsiveness, adjusted for distance. It prevents distant stations from being unfairly penalized.
-                                <br>
-                                `Normalized Wait Time = (Time of Arrival - Time of Request) / Distance`
-                                <br>
-                                The "Distance" is from the garage for direct shipments, or from the previous stop for optimized routes. A lower value (in min/km) is better.
-                            </li>
-                            <li>
-                                <strong>Potential Additional Tonnage:</strong> This metric quantifies the opportunity cost of idle truck time against a configurable target.
-                            </li>
-                            <li>
-                                <strong>Hourly Truck Activity:</strong> This graph shows the operational rhythm of the workday by showing the average number of trucks that are busy during each hour.</li>
-                             <li>
-                                <strong>Service Failures by Station:</strong> This counts how many times a station overflowed while already waiting for collection.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Accordion Item 5 -->
-                <div class="border-b border-gray-200">
-                    <button class="accordion-header w-full text-left py-4 focus:outline-none">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-semibold text-gray-700">Key Assumptions for this Model</h3>
-                            <svg class="accordion-arrow w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </button>
-                    <div class="accordion-content hidden prose max-w-none text-gray-600 pb-4">
-                        <ul class="list-disc pl-5 space-y-1">
-                            <li><strong>Direct Shipment Assumption:</strong> In "As-Is" mode, a truck always returns to the garage after visiting a single station.</li>
-                            <li><strong>Efficient Clustering Assumption:</strong> This algorithm allows partial collections by default to maximize truck capacity on each trip.</li>
-                            <li><strong>Constant Waste Rate:</strong> The simulation uses a fixed, average daily waste accumulation rate for each station. It does not account for daily or weekly fluctuations.</li>
-                            <li><strong>No Seasonality:</strong> The model does not consider seasonal effects that might increase or decrease waste generation over longer periods.</li>
-                            <li><strong>Perfect Information:</strong> The system instantly knows a station's fill level. There are no communication delays.</li>
-                        </ul>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+        </main>
     </div>
 
-    <script>
-        // --- DATA SECTION ---
-        const initialLocations = [
-            { name: 'СОРТИРОВК', lat: 49.976136, lon: 73.21353, daily_rate_kg: 548.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'АЛИХАНОВА', lat: 49.812733, lon: 73.10442, daily_rate_kg: 402.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'КАЙРАТ', lat: 49.852155, lon: 73.189151, daily_rate_kg: 356.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'ПРИШАХТИН', lat: 49.902935, lon: 73.090803, daily_rate_kg: 303.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'ГОРНЯК', lat: 49.89676, lon: 73.209151, daily_rate_kg: 255.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: '6 МКР-Н Т', lat: 50.048318, lon: 72.960638, daily_rate_kg: 201.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'ШАХТИНСК', lat: 49.700802, lon: 72.603979, daily_rate_kg: 176.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'АРБА', lat: 49.784771, lon: 73.102483, daily_rate_kg: 161.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'Абай', lat: 49.629102, lon: 72.874421, daily_rate_kg: 158.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'САРАНЬ', lat: 49.804743, lon: 72.829176, daily_rate_kg: 156.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'Экспресс-Темиртау', lat: 50.062618, lon: 72.992437, daily_rate_kg: 130.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'СТЕПНОЙ', lat: 49.785033, lon: 73.151946, daily_rate_kg: 122.0, capacity_kg: 1500, type: 'ecostation', isOriginal: true },
-            { name: 'Garage', lat: 49.791967, lon: 73.162751, daily_rate_kg: 0, capacity_kg: 0, type: 'garage', isOriginal: true }
-        ];
-
-        let allLocations = JSON.parse(JSON.stringify(initialLocations));
-        let scenarioA = null;
-        let scenarioB = null;
-        let currentlyEditing = null; // 'A', 'B', or null
-
-        const GARAGE_NAME = 'Garage';
-
-        // --- DOM Elements ---
-        const singleModeBtn = document.getElementById('singleModeBtn');
-        const compareModeBtn = document.getElementById('compareModeBtn');
-        const controlPanel = document.getElementById('controlPanel');
-        const singleResultsView = document.getElementById('singleResultsView');
-        const comparisonResultsView = document.getElementById('comparisonResultsView');
-        const simulationLogicSelect = document.getElementById('simulationLogic');
-        const directShipmentParamsEl = document.getElementById('directShipmentParams');
-        const optimizedRoutingParamsEl = document.getElementById('optimizedRoutingParams');
-        
-        const editA_btn = document.getElementById('editA');
-        const saveA_btn = document.getElementById('saveA');
-        const editB_btn = document.getElementById('editB');
-        const saveB_btn = document.getElementById('saveB');
-
-        const runBtn = document.getElementById('runSimulationBtn');
-        const totalWasteEl = document.getElementById('totalWaste');
-        const avgUtilizationEl = document.getElementById('avgUtilization');
-        const totalFailuresEl = document.getElementById('totalFailures');
-        const potentialTonnageEl = document.getElementById('potentialTonnage');
-        const loaderContainer = document.getElementById('loaderContainer');
-        const paramsToggle = document.getElementById('paramsToggle');
-        const stationsToggle = document.getElementById('stationsToggle');
-        const distancesToggle = document.getElementById('distancesToggle');
-        const parametersView = document.getElementById('parametersView');
-        const stationsView = document.getElementById('stationsView');
-        const distancesView = document.getElementById('distancesView');
-        const resultsTableView = document.getElementById('resultsTableView');
-        const trucksTableView = document.getElementById('trucksTableView');
-        const addStationBtn = document.getElementById('addStationBtn');
-        const locationsTableBody = document.getElementById('locationsTableBody');
-        const timeStepInput = document.getElementById('timeStep');
-        const stationsTableBody = document.getElementById('stationsTableBody');
-
-        let utilChartSingle, failuresChartSingle, waitTimeChartSingle, hourlyActivityChartSingle;
-        let utilChartCompare, waitTimeChartCompare, hourlyActivityChartCompare, failuresChartCompare;
-        
-        // --- DYNAMIC DATA CALCULATION ---
-
-        function haversine(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth radius in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function calculateMatrices(locations, avgSpeed) {
-            const ROAD_NETWORK_FACTOR = 1.3;
-            const timeMatrix = {};
-            const distanceMatrix = {};
-            locations.forEach(loc1 => {
-                timeMatrix[loc1.name] = {};
-                distanceMatrix[loc1.name] = {};
-                locations.forEach(loc2 => {
-                    const dist = haversine(loc1.lat, loc1.lon, loc2.lat, loc2.lon);
-                    const roadDist = dist * ROAD_NETWORK_FACTOR;
-                    const timeHours = avgSpeed > 0 ? roadDist / avgSpeed : 0;
-                    timeMatrix[loc1.name][loc2.name] = timeHours * 60;
-                    distanceMatrix[loc1.name][loc2.name] = roadDist;
-                });
-            });
-            return { timeMatrix, distanceMatrix };
-        }
-        
-        function getCurrentParams() {
-             return {
-                SIMULATION_LOGIC: document.getElementById('simulationLogic').value,
-                SIMULATION_DAYS: parseInt(document.getElementById('simulationDays').value),
-                NUM_TRUCKS: parseInt(document.getElementById('numTrucks').value),
-                AVG_SPEED: parseFloat(document.getElementById('avgSpeed').value),
-                COLLECTION_TRIGGER_PERCENT: parseInt(document.getElementById('triggerPercent').value) / 100,
-                WORK_START_HOUR: parseInt(document.getElementById('workStart').value),
-                WORK_END_HOUR: parseInt(document.getElementById('workEnd').value),
-                LOADING_TIME_MINUTES: parseInt(document.getElementById('loadingTime').value),
-                UNLOADING_TIME_MINUTES: parseInt(document.getElementById('unloadingTime').value),
-                TARGET_UTILIZATION: parseInt(document.getElementById('targetUtilization').value) / 100,
-                TIME_STEP_MINUTES: parseInt(timeStepInput.value),
-                QUEUE_APPROACH: document.getElementById('queueApproach').value,
-                TRUCK_CAPACITY_KG: parseInt(document.getElementById('truckCapacity').value),
-                MIN_COLLECTION_THRESHOLD: parseInt(document.getElementById('minCollectionThreshold').value) / 100,
-                MIN_DISPATCH_THRESHOLD: parseInt(document.getElementById('minDispatchThreshold').value),
-                EMERGENCY_DISPATCH_THRESHOLD: parseInt(document.getElementById('emergencyThreshold').value) / 100
-            };
-        }
-
-        function loadStateToPanel(state) {
-            const params = state.params;
-            document.getElementById('simulationLogic').value = params.SIMULATION_LOGIC || 'direct';
-
-            const simpleMappings = {
-                SIMULATION_DAYS: 'simulationDays', NUM_TRUCKS: 'numTrucks', AVG_SPEED: 'avgSpeed',
-                WORK_START_HOUR: 'workStart', WORK_END_HOUR: 'workEnd', LOADING_TIME_MINUTES: 'loadingTime',
-                UNLOADING_TIME_MINUTES: 'unloadingTime', TIME_STEP_MINUTES: 'timeStep', QUEUE_APPROACH: 'queueApproach',
-                TRUCK_CAPACITY_KG: 'truckCapacity', MIN_DISPATCH_THRESHOLD: 'minDispatchThreshold'
-            };
-
-            for (const [key, id] of Object.entries(simpleMappings)) {
-                if (document.getElementById(id) && params[key] !== undefined) {
-                    document.getElementById(id).value = params[key];
-                }
-            }
-
-            if (document.getElementById('triggerPercent') && params.COLLECTION_TRIGGER_PERCENT !== undefined) {
-                document.getElementById('triggerPercent').value = params.COLLECTION_TRIGGER_PERCENT * 100;
-            }
-             if (document.getElementById('targetUtilization') && params.TARGET_UTILIZATION !== undefined) {
-                document.getElementById('targetUtilization').value = params.TARGET_UTILIZATION * 100;
-            }
-            if (document.getElementById('minCollectionThreshold') && params.MIN_COLLECTION_THRESHOLD !== undefined) {
-                document.getElementById('minCollectionThreshold').value = params.MIN_COLLECTION_THRESHOLD * 100;
-            }
-             if (document.getElementById('emergencyThreshold') && params.EMERGENCY_DISPATCH_THRESHOLD !== undefined) {
-                document.getElementById('emergencyThreshold').value = params.EMERGENCY_DISPATCH_THRESHOLD * 100;
-            }
-            
-            toggleLogicParamsUI();
-            
-            allLocations = JSON.parse(JSON.stringify(state.locations));
-            populateStationsTable();
-            renderDistancesView();
-        }
-
-        function compareAndGenerateSummaries(sA, sB) {
-            let summaryA = [];
-            let summaryB = [];
-
-            if (!sA || !sB) return { summaryA: '', summaryB: '' };
-            
-            const logicText = {
-                'direct': 'Direct',
-                'demand_aggregation': 'Demand Aggregation (Full)',
-                'demand_aggregation_partial': 'Demand Aggregation (Partial)'
-            }
-
-            if (sA.params.SIMULATION_LOGIC !== sB.params.SIMULATION_LOGIC) {
-                 summaryA.push(`Logic: ${logicText[sA.params.SIMULATION_LOGIC]}`);
-                 summaryB.push(`Logic: ${logicText[sB.params.SIMULATION_LOGIC]}`);
-            }
-
-            if (sA.params.NUM_TRUCKS !== sB.params.NUM_TRUCKS) {
-                summaryA.push(`${sA.params.NUM_TRUCKS} Trucks`);
-                summaryB.push(`${sB.params.NUM_TRUCKS} Trucks`);
-            }
-
-            const stationCountA = sA.locations.filter(loc => loc.type === 'ecostation').length;
-            const stationCountB = sB.locations.filter(loc => loc.type === 'ecostation').length;
-            if (stationCountA !== stationCountB) {
-                summaryA.push(`${stationCountA} Stations`);
-                summaryB.push(`${stationCountB} Stations`);
-            }
-
-            if (sA.params.WORK_START_HOUR !== sB.params.WORK_START_HOUR || sA.params.WORK_END_HOUR !== sB.params.WORK_END_HOUR) {
-                summaryA.push(`Hours: ${sA.params.WORK_START_HOUR}:00-${sA.params.WORK_END_HOUR}:00`);
-                summaryB.push(`Hours: ${sB.params.WORK_START_HOUR}:00-${sB.params.WORK_END_HOUR}:00`);
-            }
-
-            if (summaryA.length === 0) {
-               summaryA.push(`${logicText[sA.params.SIMULATION_LOGIC]}, ${sA.params.NUM_TRUCKS} Trucks, ${stationCountA} Stations`);
-               summaryB.push(`${logicText[sB.params.SIMULATION_LOGIC]}, ${sB.params.NUM_TRUCKS} Trucks, ${stationCountB} Stations`);
-            }
-
-            return {
-                summaryA: summaryA.join('<br>'),
-                summaryB: summaryB.join('<br>')
-            };
-        }
-
-        function updateControlPanelUI() {
-            const summaryElA = document.getElementById('summaryA');
-            const summaryElB = document.getElementById('summaryB');
-
-            const summaries = compareAndGenerateSummaries(scenarioA, scenarioB);
-            summaryElA.innerHTML = scenarioA ? summaries.summaryA : 'No scenario saved yet.';
-            summaryElB.innerHTML = scenarioB ? summaries.summaryB : 'No scenario saved yet.';
-
-            if (currentlyEditing === 'A') {
-                editA_btn.classList.add('hidden');
-                saveA_btn.classList.remove('hidden');
-                editB_btn.disabled = true;
-                editB_btn.classList.add('opacity-50', 'cursor-not-allowed');
-                document.getElementById('statusA').textContent = 'Editing...';
-                document.getElementById('statusA').className = 'text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-800';
-            } else {
-                editA_btn.classList.remove('hidden');
-                saveA_btn.classList.add('hidden');
-                editB_btn.disabled = false;
-                editB_btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                 if(scenarioA){
-                    document.getElementById('statusA').textContent = 'Saved';
-                    document.getElementById('statusA').className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800';
-                 } else {
-                    document.getElementById('statusA').textContent = 'Not Saved';
-                    document.getElementById('statusA').className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800';
-                 }
-            }
-
-            if (currentlyEditing === 'B') {
-                 editB_btn.classList.add('hidden');
-                 saveB_btn.classList.remove('hidden');
-                 editA_btn.disabled = true;
-                 editA_btn.classList.add('opacity-50', 'cursor-not-allowed');
-                 document.getElementById('statusB').textContent = 'Editing...';
-                 document.getElementById('statusB').className = 'text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-800';
-            } else {
-                 editB_btn.classList.remove('hidden');
-                 saveB_btn.classList.add('hidden');
-                 editA_btn.disabled = false;
-                 editA_btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                 if(scenarioB){
-                    document.getElementById('statusB').textContent = 'Saved';
-                    document.getElementById('statusB').className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800';
-                 } else {
-                     document.getElementById('statusB').textContent = 'Not Saved';
-                     document.getElementById('statusB').className = 'text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800';
-                 }
-            }
-            
-            if (currentlyEditing || !scenarioA || !scenarioB) {
-                compareModeBtn.disabled = true;
-                compareModeBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                compareModeBtn.disabled = false;
-                compareModeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-        
-        // --- SIMULATION ENGINE (Direct Shipment) ---
-        function runSimulation(params, locations) {
-            const { timeMatrix, distanceMatrix } = calculateMatrices(locations, params.AVG_SPEED);
-            const simStationsData = locations
-                .filter(loc => loc.type === 'ecostation')
-                .map(loc => ({
-                    station_name: loc.name,
-                    daily_rate_kg: loc.daily_rate_kg,
-                    max_capacity_kg: loc.capacity_kg
-                }));
-
-            const effectiveWorkdayHours = params.WORK_END_HOUR - params.WORK_START_HOUR;
-            const effectiveWorkdayMinutes = effectiveWorkdayHours * 60;
-            const simTotalMinutes = params.SIMULATION_DAYS * 24 * 60;
-
-            let ecostations = JSON.parse(JSON.stringify(simStationsData));
-            ecostations.forEach(s => {
-                s.current_waste_kg = 0.0;
-                s.rate_per_step = effectiveWorkdayMinutes > 0 ? (s.daily_rate_kg / effectiveWorkdayMinutes) * params.TIME_STEP_MINUTES : 0;
-            });
-
-            let truckStatus = Array.from({ length: params.NUM_TRUCKS }, (_, i) => ({
-                truck_id: i + 1, is_busy: false, busy_until_minute: 0, total_work_minutes: 0, trips_made: 0, total_km: 0, total_collected_kg: 0
-            }));
-
-            let simulationLog = [];
-            let collection_queue = [];
-            let hourlyActivity = Array(24).fill(0);
-
-            for (let minute = 0; minute < simTotalMinutes; minute += params.TIME_STEP_MINUTES) {
-                const day_index = Math.floor(minute / (24 * 60));
-                const day_of_week = day_index % 7; 
-                const is_workday = day_of_week !== 6;
-
-                const hour_of_day = Math.floor((minute % (24 * 60)) / 60);
-                const is_working_hour = hour_of_day >= params.WORK_START_HOUR && hour_of_day < params.WORK_END_HOUR;
-
-                if (is_working_hour && is_workday) {
-                    ecostations.forEach(s => s.current_waste_kg += s.rate_per_step);
-                }
-                
-                if(is_workday){
-                    ecostations.forEach(station => {
-                        if (station.current_waste_kg > station.max_capacity_kg) {
-                            if (collection_queue.some(req => req.station_name === station.station_name)) {
-                                simulationLog.push({ event: 'SERVICE_FAILURE', station_name: station.station_name });
-                            }
-                        }
-                        if (station.current_waste_kg >= station.max_capacity_kg * params.COLLECTION_TRIGGER_PERCENT) {
-                            if (!collection_queue.some(req => req.station_name === station.station_name)) {
-                                collection_queue.push({ station_name: station.station_name, request_minute: minute });
-                            }
-                        }
-                    });
-                }
-
-                truckStatus.forEach(truck => {
-                    if (truck.busy_until_minute <= minute) truck.is_busy = false;
-                    if (truck.is_busy) hourlyActivity[hour_of_day] += params.TIME_STEP_MINUTES;
-                });
-
-                if (collection_queue.length > 0 && is_working_hour && is_workday) {
-                    if (params.QUEUE_APPROACH === 'fifo') {
-                        collection_queue.sort((a, b) => a.request_minute - b.request_minute);
-                    } else if (params.QUEUE_APPROACH === 'srt') {
-                         collection_queue.forEach(req => {
-                            const station = ecostations.find(s => s.station_name === req.station_name);
-                            const remaining_capacity = station.max_capacity_kg - station.current_waste_kg;
-                            const rate_per_minute = effectiveWorkdayMinutes > 0 ? station.daily_rate_kg / effectiveWorkdayMinutes : 0;
-                            req.time_to_fill = rate_per_minute > 0 ? remaining_capacity / rate_per_minute : Infinity;
-                         });
-                         collection_queue.sort((a, b) => a.time_to_fill - b.time_to_fill);
-                    }
-
-                    for (let i = 0; i < collection_queue.length; i++) {
-                        const request = collection_queue[i];
-                        const availableTruck = truckStatus.find(t => !t.is_busy);
-                        if (!availableTruck) break;
-
-                        const station_name = request.station_name;
-                        const go_time = timeMatrix[GARAGE_NAME][station_name];
-                        const return_time = timeMatrix[station_name][GARAGE_NAME];
-                        const total_trip_duration_minutes = go_time + params.LOADING_TIME_MINUTES + return_time + params.UNLOADING_TIME_MINUTES;
-                        
-                        const go_dist = distanceMatrix[GARAGE_NAME][station_name];
-                        const return_dist = distanceMatrix[station_name][GARAGE_NAME];
-                        const total_trip_distance_km = go_dist + return_dist;
-                        
-                        const assignment_minute = minute;
-                        const trip_end_minute = minute + Math.ceil(total_trip_duration_minutes);
-                        
-                        availableTruck.is_busy = true;
-                        availableTruck.busy_until_minute = trip_end_minute;
-                        availableTruck.total_work_minutes += total_trip_duration_minutes;
-                        availableTruck.trips_made += 1;
-                        availableTruck.total_km += total_trip_distance_km;
-
-                        const station = ecostations.find(s => s.station_name === station_name);
-                        const collected_amount = station.current_waste_kg;
-                        station.current_waste_kg = 0.0;
-                        availableTruck.total_collected_kg += collected_amount;
-
-                        const arrival_minute = assignment_minute + Math.ceil(go_time);
-                        const raw_wait_time = arrival_minute - request.request_minute;
-                        const distance = distanceMatrix[GARAGE_NAME][station_name];
-                        const normalized_wait_time = distance > 0 ? raw_wait_time / distance : raw_wait_time;
-
-                        simulationLog.push({
-                            event: 'COLLECTION',
-                            station_name: station_name,
-                            collected_kg: collected_amount,
-                            normalized_wait_time: normalized_wait_time,
-                            trip_duration_minutes: total_trip_duration_minutes,
-                        });
-                        
-                        collection_queue.splice(i, 1);
-                        i--;
-                    }
-                }
-            }
-            
-            return processSimulationResults(simulationLog, truckStatus, ecostations, params, hourlyActivity);
-        }
-
-        // --- SIMULATION ENGINE (Regional Demand Aggregation) ---
-        function runDemandAggregationSimulation(params, locations, allowPartial = false) {
-            const { timeMatrix, distanceMatrix } = calculateMatrices(locations, params.AVG_SPEED);
-            let tripCounter = 0;
-            const simStationsData = locations
-                .filter(loc => loc.type === 'ecostation')
-                .map(loc => ({
-                    station_name: loc.name,
-                    daily_rate_kg: loc.daily_rate_kg,
-                    max_capacity_kg: loc.capacity_kg
-                }));
-
-            const effectiveWorkdayHours = params.WORK_END_HOUR - params.WORK_START_HOUR;
-            const effectiveWorkdayMinutes = effectiveWorkdayHours * 60;
-            const simTotalMinutes = params.SIMULATION_DAYS * 24 * 60;
-
-            let ecostations = JSON.parse(JSON.stringify(simStationsData));
-            ecostations.forEach(s => {
-                s.current_waste_kg = 0.0;
-                s.rate_per_step = effectiveWorkdayMinutes > 0 ? (s.daily_rate_kg / effectiveWorkdayMinutes) * params.TIME_STEP_MINUTES : 0;
-                s.is_in_route = false;
-                s.request_minute = -1;
-            });
-
-            let truckStatus = Array.from({ length: params.NUM_TRUCKS }, (_, i) => ({
-                truck_id: i + 1, is_busy: false, busy_until_minute: 0, total_work_minutes: 0, trips_made: 0, total_km: 0, total_collected_kg: 0
-            }));
-
-            let simulationLog = [];
-            let hourlyActivity = Array(24).fill(0);
-
-            for (let minute = 0; minute < simTotalMinutes; minute += params.TIME_STEP_MINUTES) {
-                const day_index = Math.floor(minute / (24 * 60));
-                const day_of_week = day_index % 7;
-                const is_workday = day_of_week !== 6;
-
-                const hour_of_day = Math.floor((minute % (24 * 60)) / 60);
-                const is_working_hour = hour_of_day >= params.WORK_START_HOUR && hour_of_day < params.WORK_END_HOUR;
-
-                if (is_working_hour && is_workday) {
-                    ecostations.forEach(s => { if(!s.is_in_route) s.current_waste_kg += s.rate_per_step });
-                }
-
-                if(is_workday){
-                    ecostations.forEach(station => {
-                        if (station.current_waste_kg > station.max_capacity_kg && !station.is_in_route) {
-                            simulationLog.push({ event: 'SERVICE_FAILURE', station_name: station.station_name });
-                        }
-                        if (station.request_minute < 0 && station.current_waste_kg >= station.max_capacity_kg * params.MIN_COLLECTION_THRESHOLD) {
-                            station.request_minute = minute;
-                        }
-                    });
-                }
-                
-                truckStatus.forEach(truck => {
-                    if (truck.busy_until_minute <= minute) truck.is_busy = false;
-                    if (truck.is_busy) hourlyActivity[hour_of_day] += params.TIME_STEP_MINUTES;
-                });
-                
-                if (is_working_hour && is_workday) {
-                    const availableTruck = truckStatus.find(t => !t.is_busy);
-                    if (availableTruck) {
-                        let candidate_pool = ecostations.filter(s => !s.is_in_route && s.request_minute !== -1);
-                        
-                        // Hybrid Logic: Emergency Dispatch
-                        const emergency_station = candidate_pool.find(s => (s.current_waste_kg / s.max_capacity_kg) >= params.EMERGENCY_DISPATCH_THRESHOLD);
-                        
-                        if (emergency_station) {
-                             const station_name = emergency_station.station_name;
-                             const go_time = timeMatrix[GARAGE_NAME][station_name];
-                             const return_time = timeMatrix[station_name][GARAGE_NAME];
-                             const total_trip_duration_minutes = go_time + params.LOADING_TIME_MINUTES + return_time + params.UNLOADING_TIME_MINUTES;
-                             
-                             const go_dist = distanceMatrix[GARAGE_NAME][station_name];
-                             const return_dist = distanceMatrix[station_name][GARAGE_NAME];
-                             const total_trip_distance_km = go_dist + return_dist;
-
-                             availableTruck.is_busy = true;
-                             availableTruck.busy_until_minute = minute + Math.ceil(total_trip_duration_minutes);
-                             availableTruck.total_work_minutes += total_trip_duration_minutes;
-                             availableTruck.trips_made += 1;
-                             availableTruck.total_km += total_trip_distance_km;
-
-                             const collected_amount = emergency_station.current_waste_kg;
-                             emergency_station.current_waste_kg = 0;
-                             availableTruck.total_collected_kg += collected_amount;
-                             
-                             const arrival_minute = minute + Math.ceil(go_time);
-                             const raw_wait_time = arrival_minute - emergency_station.request_minute;
-                             const distance = distanceMatrix[GARAGE_NAME][station_name];
-                             const normalized_wait_time = distance > 0 ? raw_wait_time / distance : raw_wait_time;
-
-                             simulationLog.push({
-                                 event: 'COLLECTION', station_name: station_name, collected_kg: collected_amount,
-                                 normalized_wait_time: normalized_wait_time, trip_duration_minutes: total_trip_duration_minutes
-                             });
-                             
-                             emergency_station.is_in_route = false;
-                             emergency_station.request_minute = -1;
-
-                        } else if (candidate_pool.length >= params.MIN_DISPATCH_THRESHOLD) {
-                            candidate_pool.forEach(s => {
-                                const remaining_capacity = s.max_capacity_kg - s.current_waste_kg;
-                                const rate_per_minute = effectiveWorkdayMinutes > 0 ? s.daily_rate_kg / effectiveWorkdayMinutes : 0;
-                                s.time_to_fill = rate_per_minute > 0 ? remaining_capacity / rate_per_minute : Infinity;
-                            });
-                            candidate_pool.sort((a, b) => a.time_to_fill - b.time_to_fill);
-                            
-                            const core_station = candidate_pool.find(s => !s.is_in_route);
-                            if (core_station) {
-                                let route = [];
-                                let collected_on_route = [];
-                                let remaining_truck_capacity = params.TRUCK_CAPACITY_KG;
-                                
-                                let current_location = GARAGE_NAME;
-                                let trip_duration = 0;
-                                
-                                // Start with core station
-                                let amount_to_collect_core = allowPartial ? Math.min(core_station.current_waste_kg, remaining_truck_capacity) : core_station.current_waste_kg;
-                                if (allowPartial || amount_to_collect_core <= remaining_truck_capacity) {
-                                    route.push(core_station);
-                                    collected_on_route.push({station: core_station, amount: amount_to_collect_core});
-                                    core_station.is_in_route = true;
-                                    trip_duration += timeMatrix[current_location][core_station.station_name] + params.LOADING_TIME_MINUTES;
-                                    remaining_truck_capacity -= amount_to_collect_core;
-                                    current_location = core_station.station_name;
-                                }
-
-                                let stops_to_consider = candidate_pool.filter(s => !s.is_in_route);
-
-                                while(remaining_truck_capacity > 0.1 && stops_to_consider.length > 0) {
-                                    let best_next_stop = null;
-                                    let shortest_time = Infinity;
-
-                                    for (const candidate of stops_to_consider) {
-                                        const amount_to_collect_cand = allowPartial ? Math.min(candidate.current_waste_kg, remaining_truck_capacity) : candidate.current_waste_kg;
-                                        if (amount_to_collect_cand > 0 && (!allowPartial ? amount_to_collect_cand <= remaining_truck_capacity : true)) {
-                                             const travel_time = timeMatrix[current_location][candidate.station_name];
-                                            if (travel_time < shortest_time) {
-                                                shortest_time = travel_time;
-                                                best_next_stop = candidate;
-                                            }
-                                        }
-                                    }
-
-                                    if (best_next_stop) {
-                                        const amount_to_collect = allowPartial ? Math.min(best_next_stop.current_waste_kg, remaining_truck_capacity) : best_next_stop.current_waste_kg;
-                                        route.push(best_next_stop);
-                                        collected_on_route.push({station: best_next_stop, amount: amount_to_collect});
-                                        best_next_stop.is_in_route = true;
-                                        
-                                        trip_duration += timeMatrix[current_location][best_next_stop.station_name] + params.LOADING_TIME_MINUTES;
-                                        remaining_truck_capacity -= amount_to_collect;
-                                        current_location = best_next_stop.station_name;
-                                        stops_to_consider = stops_to_consider.filter(s => !s.is_in_route);
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                
-                                if (route.length > 0) {
-                                    trip_duration += timeMatrix[current_location][GARAGE_NAME] + params.UNLOADING_TIME_MINUTES;
-                                    
-                                    let route_distance_km = 0;
-                                    let last_loc = GARAGE_NAME;
-                                    route.forEach(stop => {
-                                        route_distance_km += distanceMatrix[last_loc][stop.station_name];
-                                        last_loc = stop.station_name;
-                                    });
-                                    route_distance_km += distanceMatrix[last_loc][GARAGE_NAME];
-                                    
-                                    tripCounter++;
-                                    availableTruck.is_busy = true;
-                                    availableTruck.busy_until_minute = minute + Math.ceil(trip_duration);
-                                    availableTruck.total_work_minutes += trip_duration;
-                                    availableTruck.trips_made += 1;
-                                    availableTruck.total_km += route_distance_km;
-                                    
-                                    let arrival_at_current_stop = minute;
-                                    let previous_location = GARAGE_NAME;
-
-                                    collected_on_route.forEach(collection => {
-                                        const { station, amount } = collection;
-                                        const travel_time_to_stop = timeMatrix[previous_location][station.station_name];
-                                        arrival_at_current_stop += travel_time_to_stop;
-                                        const raw_wait_time = arrival_at_current_stop - station.request_minute;
-                                        const distance_leg = distanceMatrix[previous_location][station.station_name];
-                                        const normalized_wait_time = distance_leg > 0 ? raw_wait_time / distance_leg : raw_wait_time;
-
-                                        simulationLog.push({
-                                            event: 'COLLECTION', station_name: station.station_name, collected_kg: amount,
-                                            normalized_wait_time: normalized_wait_time, trip_duration_minutes: trip_duration,
-                                            tripId: tripCounter
-                                        });
-
-                                        availableTruck.total_collected_kg += amount;
-                                        station.current_waste_kg -= amount;
-                                        station.is_in_route = false;
-                                        
-                                        if (station.current_waste_kg < station.max_capacity_kg * params.MIN_COLLECTION_THRESHOLD) {
-                                            station.request_minute = -1;
-                                        }
-                                        
-                                        arrival_at_current_stop += params.LOADING_TIME_MINUTES;
-                                        previous_location = station.station_name;
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return processSimulationResults(simulationLog, truckStatus, ecostations, params, hourlyActivity);
-        }
-
-        function processSimulationResults(simulationLog, truckStatus, ecostations, params, hourlyActivity) {
-            let num_work_days = 0;
-            for (let d = 0; d < params.SIMULATION_DAYS; d++) {
-                if (d % 7 !== 6) num_work_days++;
-            }
-            
-            const effectiveWorkdayMinutes = (params.WORK_END_HOUR - params.WORK_START_HOUR) * 60;
-            const collection_logs = simulationLog.filter(log => log.event === 'COLLECTION');
-            const total_available_minutes = params.NUM_TRUCKS * num_work_days * effectiveWorkdayMinutes;
-            const total_busy_minutes = truckStatus.reduce((sum, truck) => sum + truck.total_work_minutes, 0);
-            const overall_utilization = (total_available_minutes > 0) ? (total_busy_minutes / total_available_minutes) * 100 : 0;
-            
-            truckStatus.forEach(truck => {
-                truck.utilization = (num_work_days * effectiveWorkdayMinutes > 0) ? (truck.total_work_minutes / (num_work_days * effectiveWorkdayMinutes)) * 100 : 0;
-            });
-
-            const total_collected_waste_kg = collection_logs.reduce((sum, log) => sum + log.collected_kg, 0);
-            const total_busy_hours = total_busy_minutes > 0 ? total_busy_minutes / 60 : 0;
-            const waste_per_hour_kg = total_busy_hours > 0 ? total_collected_waste_kg / total_busy_hours : 0;
-            
-            const target_busy_minutes = total_available_minutes * params.TARGET_UTILIZATION;
-            const usable_idle_minutes = Math.max(0, target_busy_minutes - total_busy_minutes);
-
-            const avg_trip_duration_minutes = collection_logs.length > 0 ? collection_logs.reduce((sum, log) => sum + log.trip_duration_minutes, 0) / collection_logs.length : 0;
-            const avg_waste_per_trip = collection_logs.length > 0 ? total_collected_waste_kg / collection_logs.length : 0;
-            const potential_extra_trips = avg_trip_duration_minutes > 0 ? usable_idle_minutes / avg_trip_duration_minutes : 0;
-            const potential_tonnage_increase_kg = potential_extra_trips * avg_waste_per_trip;
-
-            const service_failures = simulationLog.filter(log => log.event === 'SERVICE_FAILURE');
-            const failures_by_station = service_failures.reduce((acc, failure) => {
-                acc[failure.station_name] = (acc[failure.station_name] || 0) + 1; return acc;
-            }, {});
-            
-            const wait_times = {};
-            collection_logs.forEach(log => {
-                if (!wait_times[log.station_name]) wait_times[log.station_name] = [];
-                wait_times[log.station_name].push(log.normalized_wait_time);
-            });
-            const avg_normalized_wait_times = {};
-            ecostations.forEach(s => avg_normalized_wait_times[s.station_name] = 0); 
-            for (const station in wait_times) {
-                const avg_normalized = wait_times[station].reduce((a, b) => a + b, 0) / wait_times[station].length;
-                avg_normalized_wait_times[station] = avg_normalized;
-            }
-            
-            const normalizedHourlyActivity = hourlyActivity.map(val => val / (params.TIME_STEP_MINUTES * num_work_days));
-
-            const resultsByStation = {};
-            ecostations.forEach(s => {
-                resultsByStation[s.station_name] = { collections: 0, collected: 0 };
-            });
-
-            collection_logs.forEach(log => {
-                if(resultsByStation[log.station_name]) {
-                    resultsByStation[log.station_name].collections++;
-                    resultsByStation[log.station_name].collected += log.collected_kg;
-                }
-            });
-
-            return {
-                total_collected_waste_kg, overall_utilization, service_failures, truckStatus, failures_by_station,
-                potential_tonnage_increase_kg, avg_normalized_wait_times, normalizedHourlyActivity, resultsByStation, waste_per_hour_kg
-            };
-        }
-
-        // --- UI UPDATE & RENDER ---
-        function updateUI(results) {
-            totalWasteEl.innerHTML = `<p>${(results.total_collected_waste_kg / 1000).toFixed(2)} tons</p>`;
-            avgUtilizationEl.innerHTML = `<p>${results.overall_utilization.toFixed(2)} %</p>`;
-            document.getElementById('wastePerHour').innerHTML = `<p>${results.waste_per_hour_kg.toFixed(2)} kg/hr</p>`;
-            totalFailuresEl.innerHTML = `<p>${results.service_failures.length}</p>`;
-            potentialTonnageEl.innerHTML = `<p>${(results.potential_tonnage_increase_kg / 1000).toFixed(2)} tons</p>`;
-        }
-        
-        function renderTruckPerformanceTable(results) {
-            const tableBody = document.getElementById('trucksTableBody');
-            tableBody.innerHTML = '';
-            
-            results.truckStatus.forEach(truck => {
-                const row = `
-                    <tr>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Truck ${truck.truck_id}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${truck.trips_made}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${truck.total_km.toFixed(2)}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${(truck.total_collected_kg / 1000).toFixed(2)}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-700">${truck.utilization.toFixed(2)}</td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
-
-            // Add Total Row
-            const totalTrips = results.truckStatus.reduce((sum, t) => sum + t.trips_made, 0);
-            const totalKm = results.truckStatus.reduce((sum, t) => sum + t.total_km, 0);
-            const totalKg = results.truckStatus.reduce((sum, t) => sum + t.total_collected_kg, 0);
-            const totalRow = `
-                <tr class="bg-gray-50 font-bold">
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">Total</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">${totalTrips}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">${totalKm.toFixed(2)}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">${(totalKg / 1000).toFixed(2)}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">${results.overall_utilization.toFixed(2)}</td>
-                </tr>
-            `;
-            tableBody.innerHTML += totalRow;
-            
-            const historicalNote = document.getElementById('historicalNote');
-            const params = getCurrentParams(); 
-            if (params.SIMULATION_LOGIC === 'direct') {
-                const projected30DayTrips = (totalTrips / params.SIMULATION_DAYS) * 30;
-                historicalNote.innerHTML = `<p><strong>Historical Benchmark:</strong> The average number of trips for a 30-day period is <strong>74</strong>. This simulation projects <strong>${projected30DayTrips.toFixed(0)}</strong> trips for a 30-day period based on current settings. The average amount of waste collected for 30-day period is <strong>70.8</strong> ton.</p>`;
-                historicalNote.classList.remove('hidden');
-            } else {
-                historicalNote.classList.add('hidden');
-            }
-
-            trucksTableView.classList.remove('hidden');
-        }
-
-        function renderResultsTable(results) {
-             const tableBody = document.getElementById('resultsTableBody');
-            tableBody.innerHTML = '';
-            const sortedStations = Object.entries(results.resultsByStation).sort((a, b) => b[1].collected - a[1].collected);
-
-            sortedStations.forEach(([name, data]) => {
-                const row = `
-                    <tr>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${name}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${data.collections}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-700">${(data.collected / 1000).toFixed(2)}</td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
-            resultsTableView.classList.remove('hidden');
-        }
-
-        function renderCharts(results) {
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ticks: { font: { size: 10 } } },
-                    y: { beginAtZero: true }
-                }
-            };
-
-             const utilCtx = document.getElementById('utilizationChart').getContext('2d');
-            if (utilChartSingle) utilChartSingle.destroy();
-            utilChartSingle = new Chart(utilCtx, {
-                type: 'bar',
-                data: {
-                    labels: results.truckStatus.map(t => `Truck ${t.truck_id}`),
-                    datasets: [{
-                        label: 'Utilization Rate (%)',
-                        data: results.truckStatus.map(t => t.utilization.toFixed(2)),
-                        backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                    }]
-                },
-                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, max: 100, title: { display: true, text: 'Percentage (%)' } } } }
-            });
-
-            const waitTimeCtx = document.getElementById('waitTimeChart').getContext('2d');
-            const waitTimeData = Object.entries(results.avg_normalized_wait_times).sort((a,b) => b[1] - a[1]);
-            if(waitTimeChartSingle) waitTimeChartSingle.destroy();
-            waitTimeChartSingle = new Chart(waitTimeCtx, {
-                type: 'bar',
-                data: {
-                    labels: waitTimeData.map(item => item[0]),
-                    datasets: [{
-                        label: 'Normalized Wait Time (min/km)',
-                        data: waitTimeData.map(item => item[1].toFixed(2)),
-                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
-                    }]
-                },
-                options: { ...chartOptions, indexAxis: 'y', scales: { ...chartOptions.scales, x: { ...chartOptions.scales.x, title: { display: true, text: 'Normalized Wait Time (min/km)' } } } }
-            });
-
-            const hourlyActivityCtx = document.getElementById('hourlyActivityChart').getContext('2d');
-            const workStart = parseInt(document.getElementById('workStart').value);
-            const workEnd = parseInt(document.getElementById('workEnd').value);
-            if(hourlyActivityChartSingle) hourlyActivityChartSingle.destroy();
-            hourlyActivityChartSingle = new Chart(hourlyActivityCtx, {
-                type: 'bar',
-                data: {
-                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
-                    datasets: [{
-                        label: 'Average Busy Trucks per Hour',
-                        data: results.normalizedHourlyActivity,
-                        backgroundColor: (context) => {
-                            const hour = context.dataIndex;
-                            return (hour >= workStart && hour < workEnd) ? 'rgba(34, 197, 94, 0.8)' : 'rgba(203, 213, 225, 0.8)';
-                        }
-                    }]
-                },
-                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, max: Math.max(1, results.truckStatus.length), title: { display: true, text: 'Avg. Busy Trucks' } } } }
-            });
-
-            const failuresCtx = document.getElementById('failuresChart').getContext('2d');
-            const failureData = Object.entries(results.failures_by_station).sort((a, b) => b[1] - a[1]);
-            if (failuresChartSingle) failuresChartSingle.destroy();
-            failuresChartSingle = new Chart(failuresCtx, {
-                type: 'bar',
-                data: {
-                    labels: failureData.map(item => item[0]),
-                    datasets: [{
-                        label: 'Overflow Count',
-                        data: failureData.map(item => item[1]),
-                        backgroundColor: 'rgba(220, 38, 38, 0.8)',
-                    }]
-                },
-                options: { ...chartOptions, indexAxis: 'y', scales: { ...chartOptions.scales, x: { ...chartOptions.scales.x, title: { display: true, text: 'Number of Failures' } } } }
-            });
-        }
-        
-        function populateStationsTable() {
-            const tableBody = document.getElementById('stationsTableBody');
-            const effectiveWorkHours = document.getElementById('workEnd').value - document.getElementById('workStart').value;
-            const timeStep = parseInt(timeStepInput.value);
-            document.getElementById('ratePerStepHeader').textContent = `Rate per ${timeStep} min (kg)`;
-            tableBody.innerHTML = '';
-            
-            const sortedStations = allLocations
-                .filter(s => s.type === 'ecostation')
-                .sort((a, b) => b.daily_rate_kg - a.daily_rate_kg);
-
-            sortedStations.forEach(station => {
-                const timeToFill = station.daily_rate_kg > 0 ? (station.capacity_kg / station.daily_rate_kg).toFixed(1) : 'N/A';
-                const monthlyTons = ((station.daily_rate_kg * 30) / 1000).toFixed(2);
-                const ratePerStep = (effectiveWorkHours > 0) ? (station.daily_rate_kg / (effectiveWorkHours * 60)) * timeStep : 0;
-                const row = `
-                    <tr>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${station.name}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                             <input type="number" value="${station.daily_rate_kg.toFixed(1)}" data-name="${station.name}" class="w-24 p-1 border rounded daily-rate-input control-input">
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${ratePerStep.toFixed(2)}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-700">${monthlyTons}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                             <input type="number" value="${station.capacity_kg.toFixed(1)}" data-name="${station.name}" class="w-24 p-1 border rounded capacity-input control-input">
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${timeToFill}</td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
-        }
-
-        function renderDistancesView() {
-            locationsTableBody.innerHTML = '';
-            allLocations.forEach(loc => {
-                let actionsHTML = '';
-                if (!loc.isOriginal) {
-                    actionsHTML = `
-                        <div class="flex space-x-2">
-                            <button class="text-indigo-600 hover:text-indigo-900 text-sm edit-btn" data-name="${loc.name}">Edit</button>
-                            <button class="text-red-600 hover:text-red-900 text-sm delete-btn" data-name="${loc.name}">Delete</button>
-                        </div>
-                    `;
-                }
-                const row = `
-                    <tr data-name="${loc.name}">
-                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${loc.name}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${loc.lat.toFixed(6)}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${loc.lon.toFixed(6)}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${loc.type === 'ecostation' ? loc.daily_rate_kg.toFixed(1) : 'N/A'}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${loc.type === 'ecostation' ? loc.capacity_kg.toFixed(1) : 'N/A'}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm">${actionsHTML}</td>
-                    </tr>`;
-                locationsTableBody.innerHTML += row;
-            });
-
-            const distContainer = document.getElementById('distanceMatrixContainer');
-            let tableHTML = '<table class="min-w-full matrix-table"><thead><tr><th>&nbsp;</th>';
-            allLocations.forEach(loc => { tableHTML += `<th>${loc.name}</th>`; });
-            tableHTML += '</tr></thead><tbody>';
-            allLocations.forEach(loc1 => {
-                tableHTML += `<tr><th>${loc1.name}</th>`;
-                allLocations.forEach(loc2 => {
-                    const dist = haversine(loc1.lat, loc1.lon, loc2.lat, loc2.lon) * 1.3;
-                    tableHTML += `<td>${dist.toFixed(1)}</td>`;
-                });
-                tableHTML += '</tr>';
-            });
-            tableHTML += '</tbody></table>';
-            distContainer.innerHTML = tableHTML;
-        }
-
-        function renderComparisonTruckPerformanceTables(resultsA, resultsB) {
-            const container = document.getElementById('comparisonTrucksTableView');
-            let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">';
-
-            const createTable = (title, results, scenarioParams) => {
-                let tableHtml = `
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">${title}</h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
-                                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trips</th>
-                                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dist. (km)</th>
-                                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Waste (t)</th>
-                                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Util. (%)</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">`;
-                
-                results.truckStatus.forEach(truck => {
-                    tableHtml += `
-                        <tr>
-                            <td class="px-2 py-2 text-sm font-medium text-gray-900">${truck.truck_id}</td>
-                            <td class="px-2 py-2 text-sm text-gray-500">${truck.trips_made}</td>
-                            <td class="px-2 py-2 text-sm text-gray-500">${truck.total_km.toFixed(2)}</td>
-                            <td class="px-2 py-2 text-sm text-gray-500">${(truck.total_collected_kg / 1000).toFixed(2)}</td>
-                            <td class="px-2 py-2 text-sm font-semibold">${truck.utilization.toFixed(2)}</td>
-                        </tr>`;
-                });
-
-                const totalTrips = results.truckStatus.reduce((sum, t) => sum + t.trips_made, 0);
-                const totalKm = results.truckStatus.reduce((sum, t) => sum + t.total_km, 0);
-                const totalKg = results.truckStatus.reduce((sum, t) => sum + t.total_collected_kg, 0);
-
-                tableHtml += `
-                    <tr class="bg-gray-50 font-bold">
-                        <td class="px-2 py-2 text-sm">Total</td>
-                        <td class="px-2 py-2 text-sm">${totalTrips}</td>
-                        <td class="px-2 py-2 text-sm">${totalKm.toFixed(2)}</td>
-                        <td class="px-2 py-2 text-sm">${(totalKg / 1000).toFixed(2)}</td>
-                        <td class="px-2 py-2 text-sm">${results.overall_utilization.toFixed(2)}</td>
-                    </tr>
-                </tbody></table></div>`;
-                 if (scenarioParams.SIMULATION_LOGIC === 'direct') {
-                    const projected30DayTrips = (totalTrips / scenarioParams.SIMULATION_DAYS) * 30;
-                    tableHtml += `
-                        <div class="mt-4 p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-700 text-sm rounded-r-lg">
-                            <p><strong>Historical Benchmark:</strong> The 30-day average is <strong>74</strong> trips. This scenario projects <strong>${projected30DayTrips.toFixed(0)}</strong> trips.</p>
-                        </div>
-                    `;
-                }
-                tableHtml += '</div>';
-                return tableHtml;
-            };
-
-            html += createTable('Scenario A: Truck Performance', resultsA, scenarioA.params);
-            html += createTable('Scenario B: Truck Performance', resultsB, scenarioB.params);
-            html += '</div>';
-            container.innerHTML = html;
-        }
-
-        function updateComparisonUI(resultsA, resultsB) {
-            const createMetricHTML = (valA, valB, unit, isLowerBetter = false) => {
-                const delta = valB - valA;
-                const pctChange = valA !== 0 ? (delta / valA) * 100 : (valB > 0 ? Infinity : 0);
-                let deltaClass = 'delta-neutral';
-                let sign = delta >= 0 ? '+' : '';
-                if (pctChange > 0.1) deltaClass = isLowerBetter ? 'delta-negative' : 'delta-positive';
-                if (pctChange < -0.1) deltaClass = isLowerBetter ? 'delta-positive' : 'delta-negative';
-
-                return `
-                    <div class="flex items-center justify-center space-x-4">
-                        <p class="text-indigo-600">${valA.toFixed(2)} ${unit}</p>
-                        <p class="text-gray-400 text-2xl font-light">vs</p>
-                        <p class="text-teal-600">${valB.toFixed(2)} ${unit}</p>
-                    </div>
-                    <p class="text-sm font-semibold mt-2 ${deltaClass}">
-                        ${sign}${delta.toFixed(2)} ${unit} (${pctChange === Infinity ? 'N/A' : `${sign}${pctChange.toFixed(1)}%`})
-                    </p>
-                `;
-            };
-
-            document.getElementById('totalWasteCompare').innerHTML = createMetricHTML(resultsA.total_collected_waste_kg / 1000, resultsB.total_collected_waste_kg / 1000, 'tons');
-            document.getElementById('avgUtilizationCompare').innerHTML = createMetricHTML(resultsA.overall_utilization, resultsB.overall_utilization, '%');
-            document.getElementById('wastePerHourCompare').innerHTML = createMetricHTML(resultsA.waste_per_hour_kg, resultsB.waste_per_hour_kg, 'kg/hr');
-            document.getElementById('totalFailuresCompare').innerHTML = createMetricHTML(resultsA.service_failures.length, resultsB.service_failures.length, '', true);
-            document.getElementById('potentialTonnageCompare').innerHTML = createMetricHTML(resultsA.potential_tonnage_increase_kg/1000, resultsB.potential_tonnage_increase_kg/1000, 'tons');
-            
-            renderComparisonTruckPerformanceTables(resultsA, resultsB);
-        }
-
-        function renderComparisonCharts(resultsA, resultsB) {
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { ticks: { font: { size: 10 } } },
-                    y: { beginAtZero: true }
-                }
-            };
-            const utilCtx = document.getElementById('utilizationChartCompare').getContext('2d');
-            if (utilChartCompare) utilChartCompare.destroy();
-            utilChartCompare = new Chart(utilCtx, {
-                type: 'bar',
-                data: {
-                    labels: Array.from({length: Math.max(resultsA.truckStatus.length, resultsB.truckStatus.length)}, (_, i) => `Truck ${i+1}`),
-                    datasets: [
-                        { label: 'Scenario A', data: resultsA.truckStatus.map(t => t.utilization.toFixed(2)), backgroundColor: 'rgba(79, 70, 229, 0.7)' },
-                        { label: 'Scenario B', data: resultsB.truckStatus.map(t => t.utilization.toFixed(2)), backgroundColor: 'rgba(13, 148, 136, 0.7)' }
-                    ]
-                },
-                options: {...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, max: 100 } } }
-            });
-
-             const waitTimeCtx = document.getElementById('waitTimeChartCompare').getContext('2d');
-            const stationNames = [...new Set([...Object.keys(resultsA.avg_normalized_wait_times), ...Object.keys(resultsB.avg_normalized_wait_times)])];
-            if(waitTimeChartCompare) waitTimeChartCompare.destroy();
-            waitTimeChartCompare = new Chart(waitTimeCtx, {
-                type: 'bar',
-                data: {
-                    labels: stationNames,
-                    datasets: [
-                         { label: 'Scenario A', data: stationNames.map(name => resultsA.avg_normalized_wait_times[name] || 0), backgroundColor: 'rgba(79, 70, 229, 0.7)' },
-                         { label: 'Scenario B', data: stationNames.map(name => resultsB.avg_normalized_wait_times[name] || 0), backgroundColor: 'rgba(13, 148, 136, 0.7)' }
-                    ]
-                },
-                options: { ...chartOptions, indexAxis: 'y' }
-            });
-
-             const failuresCtx = document.getElementById('failuresChartCompare').getContext('2d');
-             if(failuresChartCompare) failuresChartCompare.destroy();
-             failuresChartCompare = new Chart(failuresCtx, {
-                 type: 'bar',
-                 data: {
-                     labels: stationNames,
-                     datasets: [
-                         { label: 'Scenario A', data: stationNames.map(name => resultsA.failures_by_station[name] || 0), backgroundColor: 'rgba(79, 70, 229, 0.7)' },
-                         { label: 'Scenario B', data: stationNames.map(name => resultsB.failures_by_station[name] || 0), backgroundColor: 'rgba(13, 148, 136, 0.7)' }
-                    ]
-                 },
-                 options: { ...chartOptions, indexAxis: 'y' }
-             });
-
-            const hourlyActivityCtx = document.getElementById('hourlyActivityChartCompare').getContext('2d');
-            if(hourlyActivityChartCompare) hourlyActivityChartCompare.destroy();
-            hourlyActivityChartCompare = new Chart(hourlyActivityChartCompare, {
-                type: 'bar',
-                data: {
-                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
-                    datasets: [
-                        { label: 'Scenario A', data: resultsA.normalizedHourlyActivity, backgroundColor: 'rgba(79, 70, 229, 0.7)' },
-                        { label: 'Scenario B', data: resultsB.normalizedHourlyActivity, backgroundColor: 'rgba(13, 148, 136, 0.7)' }
-                    ]
-                },
-                options: chartOptions
-            });
-        }
-
-        // --- EVENT LISTENERS ---
-        runBtn.addEventListener('click', () => {
-            singleResultsView.classList.add('hidden');
-            loaderContainer.classList.remove('hidden');
-            loaderContainer.classList.add('flex');
-            runBtn.disabled = true;
-            document.getElementById('runBtnText').textContent = 'Running...';
-
-            setTimeout(() => {
-                try {
-                    const params = getCurrentParams();
-                    let simulationFunction;
-                    if (params.SIMULATION_LOGIC === 'demand_aggregation') {
-                        simulationFunction = (p, l) => runDemandAggregationSimulation(p, l, false);
-                    } else if (params.SIMULATION_LOGIC === 'demand_aggregation_partial') {
-                        simulationFunction = (p, l) => runDemandAggregationSimulation(p, l, true);
-                    }
-                    else {
-                        simulationFunction = runSimulation;
-                    }
-                    const results = simulationFunction(params, allLocations);
-                    updateUI(results);
-                    renderTruckPerformanceTable(results);
-                    renderResultsTable(results);
-                    renderCharts(results);
-                } catch (error) {
-                    console.error("Simulation failed:", error);
-                    alert("An error occurred during the simulation. Check the console for details.");
-                } finally {
-                    singleResultsView.classList.remove('hidden');
-                    loaderContainer.classList.add('hidden');
-                    loaderContainer.classList.remove('flex');
-                    runBtn.disabled = false;
-                    document.getElementById('runBtnText').textContent = 'Run Simulation';
-                }
-            }, 100);
-        });
-        
-        const toggles = [paramsToggle, stationsToggle, distancesToggle];
-        const views = [parametersView, stationsView, distancesView];
-        
-        toggles.forEach((toggle, index) => {
-            toggle.addEventListener('click', () => {
-                toggles.forEach(t => {
-                    t.classList.remove('toggle-btn-active');
-                    t.classList.add('toggle-btn-inactive');
-                });
-                views.forEach(v => v.classList.add('hidden'));
-
-                toggle.classList.add('toggle-btn-active');
-                toggle.classList.remove('toggle-btn-inactive');
-                views[index].classList.remove('hidden');
-            });
-        });
-
-        function toggleLogicParamsUI() {
-            if (simulationLogicSelect.value === 'direct') {
-                directShipmentParamsEl.classList.remove('hidden');
-                optimizedRoutingParamsEl.classList.add('hidden');
-            } else {
-                directShipmentParamsEl.classList.add('hidden');
-                optimizedRoutingParamsEl.classList.remove('hidden');
-            }
-        }
-        simulationLogicSelect.addEventListener('change', toggleLogicParamsUI);
-        
-        addStationBtn.addEventListener('click', () => {
-            const name = document.getElementById('newName').value.trim();
-            const lat = parseFloat(document.getElementById('newLat').value);
-            const lon = parseFloat(document.getElementById('newLon').value);
-            const dailyRate = parseFloat(document.getElementById('newDailyRate').value);
-            const capacity = parseFloat(document.getElementById('newCapacity').value);
-
-            if (!name || isNaN(lat) || isNaN(lon) || isNaN(dailyRate) || isNaN(capacity) || dailyRate < 0 || capacity <= 0) {
-                alert('Please fill in all fields with valid, positive data.');
-                return;
-            }
-            if(allLocations.some(l => l.name.toLowerCase() === name.toLowerCase())) {
-                alert('An ecostation with this name already exists.');
-                return;
-            }
-
-            allLocations.push({ name, lat, lon, daily_rate_kg: dailyRate, capacity_kg: capacity, type: 'ecostation', isOriginal: false });
-            
-            populateStationsTable();
-            renderDistancesView();
-            updateControlPanelUI();
-
-            document.getElementById('newName').value = '';
-            document.getElementById('newLat').value = '';
-            document.getElementById('newLon').value = '';
-            document.getElementById('newDailyRate').value = '';
-            document.getElementById('newCapacity').value = '1500';
-
-            alert(`Ecostation "${name}" has been added successfully!`);
-        });
-
-        locationsTableBody.addEventListener('click', e => {
-            const target = e.target;
-            
-            if (target.closest('.delete-btn')) {
-                 const stationName = target.closest('.delete-btn').dataset.name;
-                 if(confirm(`Are you sure you want to delete "${stationName}"?`)){
-                    const index = allLocations.findIndex(loc => loc.name === stationName && !loc.isOriginal);
-                    if (index > -1) {
-                        allLocations.splice(index, 1);
-                        populateStationsTable();
-                        renderDistancesView();
-                        updateControlPanelUI();
-                    }
-                }
-                return;
-            }
-
-            if (target.closest('.edit-btn')) {
-                const stationName = target.closest('.edit-btn').dataset.name;
-                const station = allLocations.find(loc => loc.name === stationName);
-                const row = document.querySelector(`tr[data-name="${stationName}"]`);
-                row.innerHTML = `
-                    <td class="px-4 py-3"><input type="text" value="${station.name}" class="w-full p-1 border rounded edit-name"></td>
-                    <td class="px-4 py-3"><input type="number" step="any" value="${station.lat}" class="w-full p-1 border rounded edit-lat"></td>
-                    <td class="px-4 py-3"><input type="number" step="any" value="${station.lon}" class="w-full p-1 border rounded edit-lon"></td>
-                    <td class="px-4 py-3"><input type="number" step="any" value="${station.daily_rate_kg}" class="w-full p-1 border rounded edit-daily-rate"></td>
-                    <td class="px-4 py-3"><input type="number" step="any" value="${station.capacity_kg}" class="w-full p-1 border rounded edit-capacity"></td>
-                    <td class="px-4 py-3">
-                        <div class="flex space-x-2">
-                           <button class="text-green-600 hover:text-green-900 text-sm save-btn" data-name="${station.name}">Save</button>
-                           <button class="text-gray-600 hover:text-gray-900 text-sm cancel-btn" data-name="${station.name}">Cancel</button>
-                        </div>
-                    </td>
-                `;
-                 return;
-            }
-
-            if (target.closest('.cancel-btn')) {
-                renderDistancesView();
-                 return;
-            }
-
-            if (target.closest('.save-btn')) {
-                 const stationName = target.closest('.save-btn').dataset.name;
-                 const row = document.querySelector(`tr[data-name="${stationName}"]`);
-                 const newName = row.querySelector('.edit-name').value.trim();
-                 const newLat = parseFloat(row.querySelector('.edit-lat').value);
-                 const newLon = parseFloat(row.querySelector('.edit-lon').value);
-                 const newDailyRate = parseFloat(row.querySelector('.edit-daily-rate').value);
-                 const newCapacity = parseFloat(row.querySelector('.edit-capacity').value);
-                 
-                 if (!newName || isNaN(newLat) || isNaN(newLon) || isNaN(newDailyRate) || isNaN(newCapacity)) {
-                    alert('Please fill all fields with valid data.');
-                    return;
-                 }
-
-                 if (newName.toLowerCase() !== stationName.toLowerCase() && allLocations.some(l => l.name.toLowerCase() === newName.toLowerCase())) {
-                     alert('An ecostation with this name already exists.');
-                     return;
-                 }
-
-                 const station = allLocations.find(loc => loc.name === stationName);
-                 station.name = newName;
-                 station.lat = newLat;
-                 station.lon = newLon;
-                 station.daily_rate_kg = newDailyRate;
-                 station.capacity_kg = newCapacity;
-
-                 populateStationsTable();
-                 renderDistancesView();
-                 updateControlPanelUI();
-                  return;
-            }
-        });
-        
-        stationsTableBody.addEventListener('change', (e) => {
-            const target = e.target;
-            let propertyToUpdate = null;
-            let alertMessage = '';
-
-            if (target.classList.contains('daily-rate-input')) {
-                propertyToUpdate = 'daily_rate_kg';
-                alertMessage = 'Please enter a valid non-negative number for the daily rate.';
-            } else if (target.classList.contains('capacity-input')) {
-                propertyToUpdate = 'capacity_kg';
-                alertMessage = 'Please enter a valid positive number for the capacity.';
-            }
-
-            if (propertyToUpdate) {
-                const stationName = target.dataset.name;
-                const newValue = parseFloat(target.value);
-
-                const isInvalid = propertyToUpdate === 'capacity_kg' ? (isNaN(newValue) || newValue <= 0) : (isNaN(newValue) || newValue < 0);
-
-                if (isInvalid) {
-                    alert(alertMessage);
-                    const station = allLocations.find(loc => loc.name === stationName);
-                    target.value = station[propertyToUpdate].toFixed(1);
-                    return;
-                }
-
-                const station = allLocations.find(loc => loc.name === stationName);
-                if (station) station[propertyToUpdate] = newValue;
-
-                populateStationsTable(); 
-                renderDistancesView();
-                updateControlPanelUI();
-            }
-        });
-
-        document.querySelectorAll('.control-input').forEach(input => {
-            input.addEventListener('change', updateControlPanelUI);
-        });
-        timeStepInput.addEventListener('change', () => {
-             populateStationsTable();
-             updateControlPanelUI();
-        });
-
-        singleModeBtn.addEventListener('click', () => {
-            singleModeBtn.classList.add('toggle-btn-active');
-            singleModeBtn.classList.remove('toggle-btn-inactive');
-            compareModeBtn.classList.remove('toggle-btn-active');
-            compareModeBtn.classList.add('toggle-btn-inactive');
-            
-            controlPanel.classList.remove('hidden');
-            singleResultsView.classList.remove('hidden');
-            comparisonResultsView.classList.add('hidden');
-        });
-
-        compareModeBtn.addEventListener('click', () => {
-             if (!scenarioA || !scenarioB) {
-                alert('Please save both Scenario A and Scenario B before comparing.');
-                return;
-            }
-            compareModeBtn.classList.add('toggle-btn-active');
-            compareModeBtn.classList.remove('toggle-btn-inactive');
-            singleModeBtn.classList.remove('toggle-btn-active');
-            singleModeBtn.classList.add('toggle-btn-inactive');
-            
-            controlPanel.classList.add('hidden');
-            singleResultsView.classList.add('hidden');
-            comparisonResultsView.classList.remove('hidden');
-            
-            loaderContainer.classList.remove('hidden');
-            loaderContainer.classList.add('flex');
-            comparisonResultsView.classList.add('hidden');
-
-             setTimeout(() => {
-                try {
-                    let simFuncA;
-                    if (scenarioA.params.SIMULATION_LOGIC === 'demand_aggregation') {
-                        simFuncA = (p, l) => runDemandAggregationSimulation(p, l, false);
-                    } else if (scenarioA.params.SIMULATION_LOGIC === 'demand_aggregation_partial') {
-                        simFuncA = (p, l) => runDemandAggregationSimulation(p, l, true);
-                    } else {
-                        simFuncA = runSimulation;
-                    }
-                    const resultsA = simFuncA(scenarioA.params, scenarioA.locations);
-                    
-                    let simFuncB;
-                     if (scenarioB.params.SIMULATION_LOGIC === 'demand_aggregation') {
-                        simFuncB = (p, l) => runDemandAggregationSimulation(p, l, false);
-                    } else if (scenarioB.params.SIMULATION_LOGIC === 'demand_aggregation_partial') {
-                        simFuncB = (p, l) => runDemandAggregationSimulation(p, l, true);
-                    } else {
-                        simFuncB = runSimulation;
-                    }
-                    const resultsB = simFuncB(scenarioB.params, scenarioB.locations);
-
-                    updateComparisonUI(resultsA, resultsB);
-                    renderComparisonCharts(resultsA, resultsB);
-                } catch(e) {
-                    console.error("Comparison run failed", e);
-                    alert("Error running comparison. Check console.")
-                } finally {
-                    loaderContainer.classList.add('hidden');
-                    loaderContainer.classList.remove('flex');
-                    comparisonResultsView.classList.remove('hidden');
-                }
-            }, 100);
-        });
-        
-        editA_btn.addEventListener('click', () => {
-            currentlyEditing = 'A';
-            if (scenarioA) loadStateToPanel(scenarioA);
-            updateControlPanelUI();
-        });
-         saveA_btn.addEventListener('click', () => {
-            scenarioA = {
-                params: getCurrentParams(),
-                locations: JSON.parse(JSON.stringify(allLocations))
-            };
-            currentlyEditing = null;
-            updateControlPanelUI();
-            alert('Scenario A saved!');
-        });
-
-        editB_btn.addEventListener('click', () => {
-            currentlyEditing = 'B';
-            if (scenarioB) loadStateToPanel(scenarioB);
-            updateControlPanelUI();
-        });
-         saveB_btn.addEventListener('click', () => {
-            scenarioB = {
-                params: getCurrentParams(),
-                locations: JSON.parse(JSON.stringify(allLocations))
-            };
-            currentlyEditing = null;
-            updateControlPanelUI();
-            alert('Scenario B saved!');
-        });
-
-        document.getElementById('explanation-accordion').addEventListener('click', (e) => {
-            const header = e.target.closest('.accordion-header');
-            if (!header) return;
-
-            const content = header.nextElementSibling;
-            const arrow = header.querySelector('.accordion-arrow');
-
-            if (content.classList.contains('hidden')) {
-                content.classList.remove('hidden');
-                arrow.style.transform = 'rotate(180deg)';
-            } else {
-                content.classList.add('hidden');
-                arrow.style.transform = 'rotate(0deg)';
-            }
-        });
-
-        window.addEventListener('load', () => {
-            scenarioA = {
-                params: getCurrentParams(),
-                locations: JSON.parse(JSON.stringify(allLocations))
-            };
-            updateControlPanelUI();
-            populateStationsTable();
-            renderDistancesView();
-            toggleLogicParamsUI();
-            runBtn.click();
-        });
-    </script>
+<script>
+// --- DATA ---
+const allRoutes = [
+    {
+        name: 'DMED101',
+        date: '2025-10-15',
+        startTime: '09:00',
+        endTime: '17:00',
+        operation: 'Dubai Medical',
+        shift: 'Day Shift',
+        vehicle: 'DXBCC40925',
+        sequence: [
+            { id: "FIRST IVF", order: 1, lat: 25.2338, lon: 55.3184, kg: 29.00 },
+            { id: "FIRST GENOMIX", order: 2, lat: 25.2339, lon: 55.3184, kg: 6.00 },
+            { id: "CLINICA SABAH", order: 3, lat: 25.2406, lon: 55.2951, kg: 101.00 },
+            { id: "AH Dubai Clinic Al Barsha", order: 4, lat: 25.0992, lon: 55.2006, kg: 5.00 },
+            { id: "Al Zahra Hospital", order: 5, lat: 25.1060, lon: 55.1805, kg: 0.00 },
+            { id: "AH Dubai Hills", order: 6, lat: 25.1028, lon: 55.2377, kg: 8.00 },
+            { id: "AH Media City", order: 7, lat: 25.1009, lon: 55.1696, kg: 14.00 },
+            { id: "Jumeirah American Clinic", order: 8, lat: 25.1513, lon: 55.2135, kg: 4.00 },
+            { id: "ALABAMA DENTAL", order: 9, lat: 25.1550, lon: 55.2166, kg: 3.00 },
+            { id: "DYNASTY CLINIC", order: 10, lat: 25.1659, lon: 55.2329, kg: 17.00 },
+            { id: "AH Al Khawaneej", order: 11, lat: 25.2345, lon: 55.4731, kg: 6.00 },
+        ]
+    }
+];
+
+let selectedRouteData = {};
+
+// --- UI & MAIN ORCHESTRATION ---
+function filterAndDisplayRoutes() {
+    const date = document.getElementById('filterDate').value;
+    const operation = document.getElementById('filterOperation').value;
+    const tableBody = document.getElementById('routeListBody');
+    tableBody.innerHTML = '';
+
+    const filtered = allRoutes.filter(route => route.date === date && route.operation === operation);
+
+    if (filtered.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">No routes found.</td></tr>`;
+        return;
+    }
+
+    filtered.forEach(route => {
+        const row = `
+            <tr class="border-b hover:bg-gray-50">
+                <td class="p-3 font-semibold">${route.name}</td>
+                <td class="p-3">${route.shift}</td>
+                <td class="p-3">${route.startTime} - ${route.endTime}</td>
+                <td class="p-3">${route.vehicle}</td>
+                <td class="p-3">
+                    <button class="btn btn-primary select-route-btn" data-route-name="${route.name}">Select</button>
+                </td>
+            </tr>
+        `;
+        tableBody.insertAdjacentHTML('beforeend', row);
+    });
+
+    document.querySelectorAll('.select-route-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => selectRoute(e.target.dataset.routeName));
+    });
+}
+
+function selectRoute(routeName) {
+    selectedRouteData = allRoutes.find(r => r.name === routeName);
+    if (!selectedRouteData) return;
+
+    document.getElementById('routeSelectionView').classList.add('hidden');
+    document.getElementById('simulationView').classList.remove('hidden');
+
+    document.getElementById('selectedRouteName').textContent = `Analyzing Route: ${selectedRouteData.name}`;
+    document.getElementById('selectedRouteInfo').textContent = `${selectedRouteData.operation} | ${selectedRouteData.date}`;
+
+    document.getElementById('plannedStartTime').value = selectedRouteData.startTime;
+    document.getElementById('plannedEndTime').value = selectedRouteData.endTime;
+    
+    populateStopsTable();
+}
+
+function populateStopsTable() {
+    const tableBody = document.getElementById('stopsTableBody');
+    if (!selectedRouteData || !selectedRouteData.sequence) {
+        tableBody.innerHTML = ''; return;
+    }
+    
+    const allStops = selectedRouteData.sequence.sort((a,b) => a.order - b.order);
+    const defaultTime = document.getElementById('defaultServiceTime').value;
+
+    tableBody.innerHTML = allStops.map(sp => `
+        <tr class="border-b bg-white even:bg-gray-50">
+            <td class="p-2">${sp.order}</td>
+            <td class="p-2 font-medium">${sp.id}</td>
+            <td class="p-2">${sp.kg || 0}</td>
+            <td class="p-2">
+                <input type="number" class="input input-sm service-time-input" value="${defaultTime}" data-order="${sp.order}">
+            </td>
+        </tr>
+    `).join('');
+}
+
+
+function setupEventListeners() {
+    document.getElementById('searchRoutesBtn').addEventListener('click', filterAndDisplayRoutes);
+    
+    document.getElementById('changeRouteBtn').addEventListener('click', () => {
+        document.getElementById('simulationView').classList.add('hidden');
+        document.getElementById('routeSelectionView').classList.remove('hidden');
+        document.getElementById('resultsContainer').classList.add('hidden');
+    });
+
+    document.getElementById('runSimBtn').addEventListener('click', () => {
+        document.getElementById('resultsContainer').classList.add('hidden');
+        document.getElementById('loaderContainer').classList.remove('hidden');
+        // Placeholder for actual simulation run
+        setTimeout(() => {
+            document.getElementById('loaderContainer').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
+        }, 1500);
+    });
+
+    const paramsTabBtn = document.getElementById('paramsTabBtn'), stopsTabBtn = document.getElementById('stopsTabBtn');
+    const paramsView = document.getElementById('paramsView'), stopsView = document.getElementById('stopsView');
+    const switchTabs = (activeTab) => {
+        const isParams = activeTab === 'params';
+        paramsTabBtn.classList.toggle('tab-active', isParams); paramsTabBtn.classList.toggle('tab-inactive', !isParams);
+        stopsTabBtn.classList.toggle('tab-active', !isParams); stopsTabBtn.classList.toggle('tab-inactive', isParams);
+        paramsView.classList.toggle('hidden', !isParams);
+        stopsView.classList.toggle('hidden', isParams);
+    };
+    paramsTabBtn.addEventListener('click', () => switchTabs('params'));
+    stopsTabBtn.addEventListener('click', () => switchTabs('stops'));
+}
+
+// --- INITIALIZATION ---
+window.addEventListener('load', () => {
+    setupEventListeners();
+    filterAndDisplayRoutes();
+});
+</script>
 </body>
 </html>
+

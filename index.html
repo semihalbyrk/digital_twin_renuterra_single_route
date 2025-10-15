@@ -19,8 +19,9 @@
             --bg-main: #0b2b51;
             --bg-card: #ffffff;
             --bg-kpi: #f9fafb;
-            --bg-better: #e1f5e0;
-            --bg-worse: #fbe6e6;
+            --chart-drive: #4f46e5; /* Indigo */
+            --chart-service: #10b981; /* Teal */
+            --chart-break: #f59e0b; /* Amber */
         }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-light); }
         .tab-active { border-color: var(--color-secondary); color: var(--color-secondary); background-color: var(--bg-card); border-bottom-color: var(--bg-card); }
@@ -32,15 +33,28 @@
         .input:disabled { background-color: #f3f4f6; cursor: not-allowed; }
         .input-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
         .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .input-group-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
         .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; text-align: center; transition: background-color 0.2s; cursor: pointer; }
         .btn-primary { background-color: var(--color-secondary); color: white; }
         .btn-primary:hover { background-color: #32932f; }
         .btn-secondary { background-color: #e5e7eb; color: var(--text-dark); }
+        .btn-danger { background-color: #fee2e2; color: #ef4444; border: none; }
+        .btn-danger:hover { background-color: #fecaca; }
         .loader { border: 5px solid #f3f3f3; border-top: 5px solid var(--color-secondary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
         h1, h2, h3 { color: var(--text-light); }
-        .card h1, .card h2, .card h3, .card p, .card span, .card div, .card table { color: var(--text-dark); }
+        .card h1, .card h2, .card h3, .card p, .card span, .card div, .card table, .card details { color: var(--text-dark); }
         .card .text-gray-500 { color: var(--text-medium) !important; }
+        .kpi-card-new { background-color: #fff; padding: 1rem; border-radius: 0.75rem; text-align: left; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
+        .kpi-label-new { font-size: 0.875rem; font-weight: 500; color: var(--text-medium); display: flex; align-items: center; }
+        .kpi-value-new { font-size: 1.875rem; font-weight: 700; color: var(--text-dark); margin-top: 0.25rem; }
+        .kpi-subtext-new { font-size: 0.75rem; color: var(--text-medium); }
+        .tooltip { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+        .tooltip .tooltiptext { visibility: hidden; width: 240px; background-color: var(--text-dark); color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -120px; opacity: 0; transition: opacity 0.3s; font-size: 0.75rem; font-weight: 400; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .tooltip-icon { font-style: normal; display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--text-medium); color: var(--text-medium); text-align: center; line-height: 14px; font-size: 10px; font-weight: bold; margin-left: 6px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -59,7 +73,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                     <div>
                         <label for="filterDate" class="label">Date</label>
-                        <input type="date" id="filterDate" class="input" value="2025-10-15">
+                        <input type="date" id="filterDate" class="input" value="2025-09-23">
                     </div>
                     <div>
                         <label for="filterOperation" class="label">Operation</label>
@@ -79,6 +93,7 @@
                                 <th class="p-3 font-semibold">Shift</th>
                                 <th class="p-3 font-semibold">Planned Time</th>
                                 <th class="p-3 font-semibold">Vehicle</th>
+                                <th class="p-3 font-semibold">Employee</th>
                                 <th class="p-3 font-semibold">Action</th>
                             </tr>
                         </thead>
@@ -106,11 +121,11 @@
                         <button id="stopsTabBtn" class="tab-inactive py-4 px-1 text-sm font-medium border-b-2">All Route Stops</button>
                     </nav>
                 </div>
-                <div id="paramsView" class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <!-- Time & Traffic Section -->
-                        <div class="space-y-4 p-4 border rounded-lg">
-                             <h3 class="font-semibold text-gray-800">Time & Traffic</h3>
+                <div id="paramsView" class="p-6 space-y-6">
+                    <!-- Time & Traffic Section -->
+                    <details open class="border rounded-md p-4">
+                        <summary class="font-semibold cursor-pointer">Time & Traffic</summary>
+                        <div class="mt-4 space-y-4 border-t pt-4">
                             <div class="input-group">
                                 <div><label class="label">Planned Start Time</label><input id="plannedStartTime" type="time" class="input" readonly disabled></div>
                                 <div><label class="label">Planned End Time</label><input id="plannedEndTime" type="time" class="input" readonly disabled></div>
@@ -123,26 +138,71 @@
                                 <label class="label">Default Service Time (min)</label>
                                 <input id="defaultServiceTime" type="number" class="input" value="15">
                             </div>
-                        </div>
-                        <!-- Costs Section -->
-                        <div class="space-y-4 p-4 border rounded-lg">
-                            <h3 class="font-semibold text-gray-800">Costs & Constraints</h3>
-                             <div><label class="label">Vehicle Capacity (kg)</label><input id="vehicleCapacity" type="number" class="input" value="2000"></div>
-                            <div class="input-group">
-                                <div><label class="label">Cost per km (AED)</label><input id="costPerKm" type="number" class="input" value="3.5"></div>
-                                <div><label class="label">Cost per Hour (AED)</label><input id="costPerHour" type="number" class="input" value="80"></div>
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="label !mb-0">Traffic Schedule</label>
+                                    <span id="trafficValidator" class="text-xs font-bold"></span>
+                                </div>
+                                <div id="trafficScheduleContainer" class="space-y-2"></div>
+                                <div class="flex gap-2 mt-2">
+                                    <button id="addTrafficRow" class="text-sm btn btn-secondary flex-grow">Add Interval</button>
+                                    <button id="presetTraffic" class="text-sm btn btn-secondary flex-grow">4-Block Preset</button>
+                                </div>
                             </div>
                         </div>
-                         <!-- Break Section -->
-                        <div class="space-y-4 p-4 border rounded-lg">
-                            <h3 class="font-semibold text-gray-800">Break Window</h3>
+                    </details>
+                    <!-- Costs Section -->
+                     <details open class="border rounded-md p-4">
+                        <summary class="font-semibold cursor-pointer">Costs & Currency</summary>
+                        <div class="mt-4 space-y-4 border-t pt-4">
+                            <div class="input-group">
+                                <div>
+                                    <label class="label">Currency</label>
+                                    <select id="currency" class="input">
+                                        <option>USD</option><option>EUR</option><option>GBP</option><option>TRY</option><option selected>AED</option>
+                                    </select>
+                                </div>
+                                <div><label class="label">Cost per km</label><input id="costPerKm" type="number" class="input" value="3.5"></div>
+                            </div>
+                            <div class="input-group">
+                                 <div><label class="label">Cost per Hour</label><input id="costPerHour" type="number" class="input" value="80"></div>
+                                 <div><label class="label">Failure Penalty</label><input id="failurePenalty" type="number" class="input" value="0"></div>
+                            </div>
+                            <div class="input-group-3">
+                                <div><label class="label">Overtime Threshold (hr)</label><input id="otThreshold" type="number" class="input" value="8"></div>
+                                <div><label class="label">Overtime Multiplier</label><input id="otMultiplier" type="number" class="input" value="1.5" step="0.1"></div>
+                            </div>
+                            <div class="input-group-3">
+                                <div><label class="label">Night Start</label><input id="nightStart" type="time" class="input" value="22:00"></div>
+                                <div><label class="label">Night End</label><input id="nightEnd" type="time" class="input" value="06:00"></div>
+                                <div><label class="label">Night Multiplier</label><input id="nightMultiplier" type="number" class="input" value="1.25" step="0.05"></div>
+                            </div>
+                        </div>
+                    </details>
+                    <!-- Break Section -->
+                    <details class="border rounded-md p-4">
+                        <summary class="font-semibold cursor-pointer">Break Window</summary>
+                        <div class="mt-4 space-y-4 border-t pt-4">
                             <div class="input-group">
                                 <div><label class="label">Break Start</label><input id="breakStart" type="time" class="input" value="12:00"></div>
                                 <div><label class="label">Break End</label><input id="breakEnd" type="time" class="input" value="13:00"></div>
                             </div>
                         </div>
-                    </div>
-                     <button id="runSimBtn" class="w-full btn btn-primary text-lg mt-8">Run Simulation</button>
+                    </details>
+                     <!-- Disposal & Capacity Section -->
+                    <details class="border rounded-md p-4">
+                        <summary class="font-semibold cursor-pointer">Disposal & Capacity</summary>
+                        <div class="mt-4 space-y-4 border-t pt-4">
+                             <div><label class="label">Vehicle Capacity (kg)</label><input id="vehicleCapacity" type="number" class="input" value="2000"></div>
+                             <div class="space-y-3 mt-4">
+                                <p class="text-sm font-medium">Disposal Choice:</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-2"><input type="radio" name="disposalChoice" id="disposalChoiceNone" value="none" checked class="h-4 w-4"><label for="disposalChoiceNone" class="text-sm">No automated disposal trips</label></div>
+                                </div>
+                             </div>
+                        </div>
+                    </details>
+                    <button id="runSimBtn" class="w-full btn btn-primary text-lg !mt-8">Run Simulation</button>
                 </div>
                 <div id="stopsView" class="hidden p-6">
                     <div class="max-h-[600px] overflow-y-auto">
@@ -151,6 +211,8 @@
                                 <tr>
                                     <th class="p-2 font-semibold">#</th>
                                     <th class="p-2 font-semibold">SERVICE POINT</th>
+                                    <th class="p-2 font-semibold">LAT</th>
+                                    <th class="p-2 font-semibold">LON</th>
                                     <th class="p-2 font-semibold">Waste (kg)</th>
                                     <th class="p-2 font-semibold">SERVICE TIME (min)</th>
                                 </tr>
@@ -161,7 +223,7 @@
                 </div>
             </div>
 
-            <!-- Results Section (Placeholder) -->
+            <!-- Results Section -->
             <div id="loaderContainer" class="hidden h-full items-center justify-center py-20">
                 <div class="text-center">
                     <div class="loader mx-auto"></div>
@@ -169,10 +231,107 @@
                 </div>
             </div>
             <div id="resultsContainer" class="hidden space-y-8">
-                 <!-- The final output design will be placed here -->
-                 <div class="card text-center">
-                    <p class="text-lg">Simulation results will be displayed here.</p>
-                 </div>
+                <!-- Full Route Sequence Table -->
+                <div class="card">
+                    <h3 class="card-header">Full Route Sequence</h3>
+                    <div class="max-h-80 overflow-y-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="p-2 font-semibold">Step</th>
+                                    <th class="p-2 font-semibold">Location</th>
+                                    <th class="p-2 font-semibold text-right">Waste (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fullRouteSequenceBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="kpi-card-new">
+                        <p class="kpi-label-new">PLANNED VS. SIMULATED</p>
+                        <p class="kpi-value-new" id="kpiSimulatedTime">0h 0m</p>
+                        <p class="kpi-subtext-new" id="kpiPlannedTime">vs 0h 0m (Planned)</p>
+                    </div>
+                     <div class="kpi-card-new">
+                        <p class="kpi-label-new">TOTAL ROUTE COST</p>
+                        <p class="kpi-value-new" id="kpiTotalCost">0.00 <span id="kpiCurrency" class="text-lg font-semibold text-gray-500">AED</span></p>
+                        <p class="kpi-subtext-new">&nbsp;</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <div class="kpi-label-new">
+                            <span class="tooltip">EFFICIENCY SCORE
+                                <i class="tooltip-icon">i</i>
+                                <span class="tooltiptext">Measures the percentage of total route time spent performing services at customer locations versus driving. Higher is better.</span>
+                            </span>
+                        </div>
+                        <p class="kpi-value-new" id="kpiEfficiency" style="color: var(--color-secondary);">0.0%</p>
+                        <p class="kpi-subtext-new">Service Time / Total Time</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <div class="kpi-label-new">
+                            <span class="tooltip">CAPACITY UTILIZATION
+                                <i class="tooltip-icon">i</i>
+                                <span class="tooltiptext">Shows the percentage of the vehicle's total weight capacity used by the end of the route, before disposal.</span>
+                            </span>
+                        </div>
+                        <p class="kpi-value-new" id="kpiCapacity" style="color: var(--color-primary);">0.0%</p>
+                        <p class="kpi-subtext-new">Total Waste / Vehicle Capacity</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <p class="kpi-label-new">Total Waste Collected</p>
+                        <p class="kpi-value-new" id="kpiTotalWaste">0 kg</p>
+                        <p class="kpi-subtext-new">&nbsp;</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <p class="kpi-label-new">WASTE PER KM</p>
+                        <p class="kpi-value-new" id="kpiWastePerKm">0.00 kg</p>
+                         <p class="kpi-subtext-new">&nbsp;</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <p class="kpi-label-new">WASTE PER HOUR</p>
+                        <p class="kpi-value-new" id="kpiWastePerHour">0.00 kg</p>
+                         <p class="kpi-subtext-new">&nbsp;</p>
+                    </div>
+                    <div class="kpi-card-new">
+                        <p class="kpi-label-new">TOTAL DISTANCE</p>
+                        <p class="kpi-value-new" id="kpiTotalDistance">0.0 km</p>
+                         <p class="kpi-subtext-new">&nbsp;</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Breakdown -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-2 card">
+                        <h3 class="card-header">Time & Efficiency Breakdown</h3>
+                        <div class="h-64 w-full flex items-center justify-center p-4">
+                            <canvas id="timeEfficiencyChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-3 card">
+                        <h3 class="card-header">Stop-by-Stop Route Analysis</h3>
+                        <div class="max-h-80 overflow-y-auto">
+                           <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="p-2 font-semibold">Leg</th>
+                                        <th class="p-2 font-semibold text-right">Travel (min)</th>
+                                        <th class="p-2 font-semibold text-right">Service (min)</th>
+                                        <th class="p-2 font-semibold text-right">Waste (kg)</th>
+                                        <th class="p-2 font-semibold text-right">Cum. Time</th>
+                                        <th class="p-2 font-semibold text-right">Truck Fill %</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stopByStopTableBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
@@ -182,31 +341,314 @@
 const allRoutes = [
     {
         name: 'DMED101',
-        date: '2025-10-15',
+        date: '2025-09-23',
         startTime: '09:00',
         endTime: '17:00',
         operation: 'Dubai Medical',
         shift: 'Day Shift',
         vehicle: 'DXBCC40925',
+        employee: 'Irshad Khan',
         sequence: [
-            { id: "FIRST IVF", order: 1, lat: 25.2338, lon: 55.3184, kg: 29.00 },
-            { id: "FIRST GENOMIX", order: 2, lat: 25.2339, lon: 55.3184, kg: 6.00 },
-            { id: "CLINICA SABAH", order: 3, lat: 25.2406, lon: 55.2951, kg: 101.00 },
-            { id: "AH Dubai Clinic Al Barsha", order: 4, lat: 25.0992, lon: 55.2006, kg: 5.00 },
+            { id: "FIRST IVF AND DAY SURGERY CENTRE FZ-LLC / Dubai Health Care City", order: 1, lat: 25.2338, lon: 55.3184, kg: 29.00 },
+            { id: "FIRST GENOMIX GENE LABORATORY FZ-LLC / Dubai Health Care City", order: 2, lat: 25.2339, lon: 55.3184, kg: 6.00 },
+            { id: "CLINICA SABAH SPECIALTY HOSPITAL", order: 3, lat: 25.2406, lon: 55.2951, kg: 101.00 },
+            { id: "American hospital Dubai Clinic Al Barsha", order: 4, lat: 25.0992, lon: 55.2006, kg: 5.00 },
             { id: "Al Zahra Hospital", order: 5, lat: 25.1060, lon: 55.1805, kg: 0.00 },
-            { id: "AH Dubai Hills", order: 6, lat: 25.1028, lon: 55.2377, kg: 8.00 },
-            { id: "AH Media City", order: 7, lat: 25.1009, lon: 55.1696, kg: 14.00 },
-            { id: "Jumeirah American Clinic", order: 8, lat: 25.1513, lon: 55.2135, kg: 4.00 },
-            { id: "ALABAMA DENTAL", order: 9, lat: 25.1550, lon: 55.2166, kg: 3.00 },
-            { id: "DYNASTY CLINIC", order: 10, lat: 25.1659, lon: 55.2329, kg: 17.00 },
-            { id: "AH Al Khawaneej", order: 11, lat: 25.2345, lon: 55.4731, kg: 6.00 },
-        ]
+            { id: "American Hospital Dubai Hills", order: 6, lat: 25.1028, lon: 55.2377, kg: 8.00 },
+            { id: "American Hospital Media City", order: 7, lat: 25.1009, lon: 55.1696, kg: 14.00 },
+            { id: "Jumeirah American Clinic / Al Manara Jumeirah", order: 8, lat: 25.1513, lon: 55.2135, kg: 4.00 },
+            { id: "ALABAMA DENTAL CENTER", order: 9, lat: 25.1550, lon: 55.2166, kg: 3.00 },
+            { id: "DYNASTY CLINIC L.L.C / Jumeriah Al Safa", order: 10, lat: 25.1659, lon: 55.2329, kg: 17.00 },
+            { id: "American hospital Al Khawaneej", order: 11, lat: 25.2345, lon: 55.4731, kg: 6.00 },
+        ],
+        depotStart: { id: "Depot", lat: 25.278984, lon: 55.408621 },
+        depotEnd: { id: "Depot", lat: 25.278984, lon: 55.408621 },
     }
 ];
 
 let selectedRouteData = {};
+let timeEfficiencyChart = null;
+
+// --- UTILITY FUNCTIONS ---
+const getCssVar = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+const minutesToHourMin = (totalMinutes, compact = false) => {
+    if (isNaN(totalMinutes)) return "0h 0m";
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = Math.round(totalMinutes % 60);
+    return compact ? `${hours}h ${minutes}m` : `${hours} hr ${minutes} min`;
+}
+const haversine = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
+// --- DYNAMIC UI MANAGEMENT ---
+class IntervalManager {
+    constructor(containerId, addBtnId, validatorId, fields) {
+        this.container = document.getElementById(containerId);
+        this.addBtn = document.getElementById(addBtnId);
+        this.validator = document.getElementById(validatorId);
+        this.fields = fields;
+        this.addBtn.addEventListener('click', () => this.addRow());
+        this.container.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-row')) {
+                e.target.closest('.interval-row').remove();
+                this.validate();
+            }
+        });
+        this.container.addEventListener('input', () => this.validate());
+    }
+    addRow(data = {}) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 interval-row';
+        row.innerHTML = this.fields.map(field => 
+            `<input type="${field.type}" class="input text-sm" data-field="${field.id}" value="${data[field.id] || ''}" ${field.step ? `step="${field.step}"` : ''} placeholder="${field.placeholder || ''}">`
+        ).join('') + `<button class="delete-row btn btn-danger p-0 h-8 w-8 flex items-center justify-center rounded-md"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>`;
+        this.container.appendChild(row);
+        this.validate();
+    }
+    loadData(data) {
+        this.container.innerHTML = '';
+        data.forEach(item => this.addRow(item));
+        this.validate();
+    }
+    getData() {
+        return Array.from(this.container.querySelectorAll('.interval-row')).map(row => {
+            const item = {};
+            this.fields.forEach(field => {
+                const input = row.querySelector(`[data-field="${field.id}"]`);
+                item[field.id] = field.type === 'time' ? input.value : parseFloat(input.value);
+            });
+            return item;
+        });
+    }
+    validate() {
+        const intervals = this.getData().map(item => ({
+            start: timeToMinutes(item.start),
+            end: timeToMinutes(item.end) === 0 ? 1440 : timeToMinutes(item.end)
+        }));
+        if(!this.validator) return;
+        intervals.sort((a, b) => a.start - b.start);
+        
+        let lastEnd = 0;
+        let isValid = true;
+        if (intervals.length === 0) {
+            isValid = false;
+        } else {
+             for (const interval of intervals) {
+                if (interval.start < lastEnd) { isValid = false; break; } // Overlap
+                lastEnd = interval.end;
+            }
+            if (lastEnd < 1440) isValid = false;
+        }
+
+        this.validator.textContent = isValid ? '✅ 24h Covered' : '⚠️ Gaps or Overlap';
+        this.validator.className = `text-xs font-bold ${isValid ? 'text-green-600' : 'text-red-600'}`;
+    }
+}
+
+const trafficManager = new IntervalManager('trafficScheduleContainer', 'addTrafficRow', 'trafficValidator', [{ id: 'start', type: 'time' }, { id: 'end', type: 'time' }, { id: 'value', type: 'number', step: '0.05', placeholder: 'Factor' }]);
+
+// --- SIMULATION CORE ---
+function runSingleSimulation(params) {
+    let t = params.startTime, distanceKm = 0, driveMin = 0, serviceMinTotal = 0, breakMin = 0, loadKg = 0;
+    let currentLoc = params.route.depotStart;
+    const breakCtx = { start: params.breakStart, end: params.breakEnd, duration: params.breakEnd - params.breakStart, taken: false };
+    if (breakCtx.duration <= 0) breakCtx.taken = true;
+
+    const fullSequence = [...params.route.sequence, { id: "Depot", ...params.route.depotEnd, isDepot: true }];
+    const stopLogs = [];
+    
+    const applyBreak = () => {
+        if (breakCtx.taken) return 0;
+        breakMin += breakCtx.duration;
+        breakCtx.taken = true;
+        return breakCtx.duration;
+    };
+
+    for (const target of fullSequence) {
+        const distToTarget = haversine(currentLoc.lat, currentLoc.lon, target.lat, target.lon) * params.roadFactor;
+        distanceKm += distToTarget;
+        
+        let travelTime = 0, kmTravelled = 0;
+        const kmPerMin = params.avgSpeed / 60;
+
+        while (kmTravelled < distToTarget) {
+            const minuteOfDay = Math.floor(t % 1440);
+            const trafficInterval = params.trafficSchedule.find(i => (i.start <= i.end) ? (minuteOfDay >= i.start && minuteOfDay < i.end) : (minuteOfDay >= i.start || minuteOfDay < i.end));
+            const trafficFactor = trafficInterval ? trafficInterval.value : 1.0;
+            const effectiveSpeed = kmPerMin / trafficFactor;
+            
+            if (effectiveSpeed <= 0) { travelTime = Infinity; break; }
+            if (!breakCtx.taken && minuteOfDay >= breakCtx.start && minuteOfDay < breakCtx.end) {
+                t += applyBreak();
+                continue;
+            }
+            kmTravelled += effectiveSpeed;
+            travelTime++;
+            t++;
+        }
+        driveMin += travelTime;
+        currentLoc = target;
+
+        const isLastDepot = target.isDepot;
+        const serviceDuration = isLastDepot ? 0 : target.serviceMin;
+        
+        if (!isLastDepot) {
+            const arrivalMinute = Math.floor(t % 1440);
+            if (!breakCtx.taken && (arrivalMinute + serviceDuration) > breakCtx.start) { 
+                t += applyBreak();
+            }
+            t += serviceDuration; 
+            serviceMinTotal += serviceDuration;
+            loadKg += target.kg;
+        }
+
+        stopLogs.push({
+            leg: target.id,
+            travelMin: travelTime,
+            serviceMin: serviceDuration,
+            wasteKg: target.kg || 0,
+            cumulativeTimeMin: t - params.startTime,
+            truckFillPct: (loadKg / params.vehicleCapacity) * 100,
+        });
+    }
+
+    const totalMin = t - params.startTime;
+    const totalHours = totalMin / 60;
+    const kmCost = distanceKm * params.costPerKm;
+    const hourCost = totalHours * params.costPerHour;
+
+    return { totalMin, distanceKm, driveMin, serviceMin: serviceMinTotal, breakMin, totalCost: kmCost + hourCost, stopLogs };
+}
 
 // --- UI & MAIN ORCHESTRATION ---
+function getParamsFromUI() {
+    const newSequence = selectedRouteData.sequence
+      .sort((a,b) => a.order - b.order)
+      .map(sp => {
+        const input = document.querySelector(`.service-time-input[data-order="${sp.order}"]`);
+        return { ...sp, serviceMin: input ? parseFloat(input.value) : 0 };
+    });
+
+    return {
+        startTime: timeToMinutes(document.getElementById('plannedStartTime').value),
+        avgSpeed: parseFloat(document.getElementById('avgSpeed').value), roadFactor: parseFloat(document.getElementById('roadFactor').value),
+        trafficSchedule: trafficManager.getData().map(i => ({...i, start: timeToMinutes(i.start), end: timeToMinutes(i.end) === 0 ? 1440 : timeToMinutes(i.end)})),
+        breakStart: timeToMinutes(document.getElementById('breakStart').value), breakEnd: timeToMinutes(document.getElementById('breakEnd').value),
+        vehicleCapacity: parseFloat(document.getElementById('vehicleCapacity').value),
+        costPerKm: parseFloat(document.getElementById('costPerKm').value), costPerHour: parseFloat(document.getElementById('costPerHour').value),
+        route: { ...selectedRouteData, sequence: newSequence },
+    };
+}
+
+function runSimulationFlow() {
+    const params = getParamsFromUI();
+    const result = runSingleSimulation(params);
+    updateUI(result, params);
+}
+
+function updateUI(result, params) {
+    const plannedTimeMin = timeToMinutes(params.route.endTime) - timeToMinutes(params.route.startTime);
+    const totalWaste = params.route.sequence.reduce((sum, stop) => sum + stop.kg, 0);
+
+    // Populate Full Route Sequence Table
+    const sequenceBody = document.getElementById('fullRouteSequenceBody');
+    sequenceBody.innerHTML = params.route.sequence.map(stop => `
+        <tr class="border-b">
+            <td class="p-2">Stop ${stop.order}</td>
+            <td class="p-2 font-medium">${stop.id}</td>
+            <td class="p-2 text-right">${stop.kg.toFixed(0)}</td>
+        </tr>
+    `).join('');
+
+    // Populate Stop-by-Stop Table
+    const stopByStopBody = document.getElementById('stopByStopTableBody');
+    stopByStopBody.innerHTML = result.stopLogs.map(log => `
+         <tr class="border-b">
+            <td class="p-2 font-medium">${log.leg}</td>
+            <td class="p-2 text-right">${log.travelMin.toFixed(1)}</td>
+            <td class="p-2 text-right">${log.serviceMin.toFixed(1)}</td>
+            <td class="p-2 text-right">${log.wasteKg.toFixed(0)}</td>
+            <td class="p-2 text-right">${minutesToHourMin(log.cumulativeTimeMin, true)}</td>
+            <td class="p-2 text-right font-semibold" style="color: var(--color-primary)">${log.truckFillPct.toFixed(1)}%</td>
+        </tr>
+    `).join('');
+
+
+    // Calculate KPIs
+    const efficiency = result.totalMin > 0 ? ((result.serviceMin) / (result.driveMin + result.serviceMin)) * 100 : 0;
+    const capacity = params.vehicleCapacity > 0 ? (totalWaste / params.vehicleCapacity) * 100 : 0;
+    const wastePerKm = result.distanceKm > 0 ? totalWaste / result.distanceKm : 0;
+    const wastePerHour = result.totalMin > 0 ? totalWaste / (result.totalMin / 60) : 0;
+
+    // Update KPI Cards
+    document.getElementById('kpiSimulatedTime').textContent = minutesToHourMin(result.totalMin, true);
+    document.getElementById('kpiPlannedTime').textContent = `vs ${minutesToHourMin(plannedTimeMin, true)} (Planned)`;
+    document.getElementById('kpiTotalCost').innerHTML = `${result.totalCost.toFixed(2)} <span id="kpiCurrency" class="text-lg font-semibold text-gray-500">${document.getElementById('currency').value}</span>`;
+    document.getElementById('kpiEfficiency').textContent = `${efficiency.toFixed(1)}%`;
+    document.getElementById('kpiCapacity').textContent = `${capacity.toFixed(1)}%`;
+    document.getElementById('kpiTotalWaste').textContent = `${totalWaste.toFixed(0)} kg`;
+    document.getElementById('kpiWastePerKm').textContent = `${wastePerKm.toFixed(2)} kg`;
+    document.getElementById('kpiWastePerHour').textContent = `${wastePerHour.toFixed(2)} kg`;
+    document.getElementById('kpiTotalDistance').textContent = `${result.distanceKm.toFixed(1)} km`;
+
+    renderTimeEfficiencyChart(result.driveMin, result.serviceMin, result.breakMin);
+}
+
+function renderTimeEfficiencyChart(drive, service, breakdown) {
+    const ctx = document.getElementById('timeEfficiencyChart').getContext('2d');
+    const data = {
+        labels: [`Driving (${minutesToHourMin(drive, true)})`, `Service (${minutesToHourMin(service, true)})`, `Break (${minutesToHourMin(breakdown, true)})`],
+        datasets: [{
+            data: [drive, service, breakdown],
+            backgroundColor: [
+                getCssVar('--chart-drive'),
+                getCssVar('--chart-service'),
+                getCssVar('--chart-break')
+            ],
+            borderWidth: 0,
+        }]
+    };
+    
+    if (timeEfficiencyChart) timeEfficiencyChart.destroy();
+
+    timeEfficiencyChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 20,
+                        color: 'var(--text-dark)'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.label}: ${minutesToHourMin(context.raw, true)}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 function filterAndDisplayRoutes() {
     const date = document.getElementById('filterDate').value;
     const operation = document.getElementById('filterOperation').value;
@@ -216,7 +658,7 @@ function filterAndDisplayRoutes() {
     const filtered = allRoutes.filter(route => route.date === date && route.operation === operation);
 
     if (filtered.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">No routes found.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-500">No routes found.</td></tr>`;
         return;
     }
 
@@ -227,6 +669,7 @@ function filterAndDisplayRoutes() {
                 <td class="p-3">${route.shift}</td>
                 <td class="p-3">${route.startTime} - ${route.endTime}</td>
                 <td class="p-3">${route.vehicle}</td>
+                <td class="p-3">${route.employee || 'N/A'}</td>
                 <td class="p-3">
                     <button class="btn btn-primary select-route-btn" data-route-name="${route.name}">Select</button>
                 </td>
@@ -246,9 +689,10 @@ function selectRoute(routeName) {
 
     document.getElementById('routeSelectionView').classList.add('hidden');
     document.getElementById('simulationView').classList.remove('hidden');
+    document.getElementById('resultsContainer').classList.add('hidden');
 
-    document.getElementById('selectedRouteName').textContent = `Analyzing Route: ${selectedRouteData.name}`;
-    document.getElementById('selectedRouteInfo').textContent = `${selectedRouteData.operation} | ${selectedRouteData.date}`;
+    document.getElementById('selectedRouteName').textContent = `Simulating Route: ${selectedRouteData.name}`;
+    document.getElementById('selectedRouteInfo').textContent = `${selectedRouteData.operation} | ${selectedRouteData.date} | ${selectedRouteData.shift}`;
 
     document.getElementById('plannedStartTime').value = selectedRouteData.startTime;
     document.getElementById('plannedEndTime').value = selectedRouteData.endTime;
@@ -262,21 +706,36 @@ function populateStopsTable() {
         tableBody.innerHTML = ''; return;
     }
     
-    const allStops = selectedRouteData.sequence.sort((a,b) => a.order - b.order);
+    const allStops = [
+        { id: "Depot", lat: selectedRouteData.depotStart.lat, lon: selectedRouteData.depotStart.lon },
+        ...selectedRouteData.sequence.sort((a,b) => a.order - b.order)
+    ];
     const defaultTime = document.getElementById('defaultServiceTime').value;
 
-    tableBody.innerHTML = allStops.map(sp => `
+    tableBody.innerHTML = allStops.map(sp => {
+        const serviceTimeContent = sp.order
+            ? `<input type="number" class="input input-sm service-time-input" value="${defaultTime}" data-order="${sp.order}">`
+            : 'N/A';
+        
+        return `
         <tr class="border-b bg-white even:bg-gray-50">
-            <td class="p-2">${sp.order}</td>
+            <td class="p-2">${sp.order || 'N/A'}</td>
             <td class="p-2 font-medium">${sp.id}</td>
-            <td class="p-2">${sp.kg || 0}</td>
-            <td class="p-2">
-                <input type="number" class="input input-sm service-time-input" value="${defaultTime}" data-order="${sp.order}">
-            </td>
+            <td class="p-2">${sp.lat.toFixed(4)}</td>
+            <td class="p-2">${sp.lon.toFixed(4)}</td>
+            <td class="p-2">${sp.kg === undefined ? 'N/A' : sp.kg}</td>
+            <td class="p-2">${serviceTimeContent}</td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
+function applyDefaultServiceTime() {
+    const defaultTime = document.getElementById('defaultServiceTime').value;
+    document.querySelectorAll('#stopsTableBody .service-time-input').forEach(input => {
+        input.value = defaultTime;
+    });
+}
 
 function setupEventListeners() {
     document.getElementById('searchRoutesBtn').addEventListener('click', filterAndDisplayRoutes);
@@ -290,11 +749,13 @@ function setupEventListeners() {
     document.getElementById('runSimBtn').addEventListener('click', () => {
         document.getElementById('resultsContainer').classList.add('hidden');
         document.getElementById('loaderContainer').classList.remove('hidden');
-        // Placeholder for actual simulation run
         setTimeout(() => {
-            document.getElementById('loaderContainer').classList.add('hidden');
-            document.getElementById('resultsContainer').classList.remove('hidden');
-        }, 1500);
+            try { runSimulationFlow(); } catch (e) { console.error("Sim failed:", e); } 
+            finally { 
+                document.getElementById('loaderContainer').classList.add('hidden'); 
+                document.getElementById('resultsContainer').classList.remove('hidden'); 
+            }
+        }, 500);
     });
 
     const paramsTabBtn = document.getElementById('paramsTabBtn'), stopsTabBtn = document.getElementById('stopsTabBtn');
@@ -308,11 +769,29 @@ function setupEventListeners() {
     };
     paramsTabBtn.addEventListener('click', () => switchTabs('params'));
     stopsTabBtn.addEventListener('click', () => switchTabs('stops'));
+    
+    document.getElementById('presetTraffic').addEventListener('click', () => {
+        trafficManager.loadData([
+            { start: '00:00', end: '06:00', value: 1.0 }, { start: '06:00', end: '12:00', value: 1.35 },
+            { start: '12:00', end: '18:00', value: 1.35 }, { start: '18:00', end: '00:00', value: 1.0 },
+        ]);
+    });
+
+    document.getElementById('defaultServiceTime').addEventListener('input', applyDefaultServiceTime);
 }
 
 // --- INITIALIZATION ---
+function loadDefaultTrafficSchedule() {
+    trafficManager.loadData([
+        { start: '00:00', end: '09:00', value: 1.0 }, { start: '09:00', end: '12:00', value: 1.35 },
+        { start: '12:00', end: '15:00', value: 1.50 }, { start: '15:00', end: '18:00', value: 1.35 },
+        { start: '18:00', end: '00:00', value: 1.0 },
+    ]);
+}
+
 window.addEventListener('load', () => {
     setupEventListeners();
+    loadDefaultTrafficSchedule();
     filterAndDisplayRoutes();
 });
 </script>
